@@ -116,7 +116,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <button
-            onClick={() => router.push('/auth/signin')}
+            onClick={() => router.push('/login')}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
           >
             Sign In
@@ -140,7 +140,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <button
-          onClick={() => isDemoMode ? router.push('/auth/signin') : router.push('/goals/new')}
+          onClick={() => isDemoMode ? router.push('/login') : router.push('/goals/new')}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
         >
           {isDemoMode ? 'Sign In to Create Goals' : '+ Create New Goal'}
@@ -210,7 +210,7 @@ export default function DashboardPage() {
               Start your journey by creating your first goal!
             </p>
             <button
-              onClick={() => isDemoMode ? router.push('/auth/signin') : router.push('/goals/new')}
+              onClick={() => isDemoMode ? router.push('/login') : router.push('/goals/new')}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
             >
               {isDemoMode ? 'Sign In to Create Goals' : 'Create Your First Goal'}

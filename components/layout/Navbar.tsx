@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
+import { signOut } from '@/auth.actions'
 import Image from 'next/image'
 
 export default function Navbar() {
@@ -47,7 +48,7 @@ export default function Navbar() {
                   )}
                   <span className="text-sm text-gray-700">{session.user?.name}</span>
                   <button
-                    onClick={() => signOut({ callbackUrl: '/' })}
+                    onClick={() => signOut()}
                     className="text-sm text-gray-600 hover:text-red-600 transition-colors"
                   >
                     Sign Out
@@ -56,7 +57,7 @@ export default function Navbar() {
               </>
             ) : (
               <Link
-                href="/auth/signin"
+                href="/login"
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
               >
                 Sign In

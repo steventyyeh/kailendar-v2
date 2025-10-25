@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { auth } from '@/auth'
 import { createGoal, getUser, getUserGoals } from '@/lib/firebase/db'
 import { generateGoalPlan } from '@/lib/claude/mock'
 import { CreateGoalRequest, ApiResponse, CreateGoalResponse } from '@/types'
@@ -8,7 +7,7 @@ import { CreateGoalRequest, ApiResponse, CreateGoalResponse } from '@/types'
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
-    const session = await getServerSession(authOptions)
+    const session = await auth()
     if (!session?.user?.email) {
       return NextResponse.json<ApiResponse>(
         {

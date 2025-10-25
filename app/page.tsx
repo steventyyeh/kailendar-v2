@@ -17,7 +17,7 @@ export default function Home() {
 
         <div className="flex gap-4 justify-center">
           <Link
-            href="/auth/signin"
+            href="/login"
             className="px-8 py-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
           >
             Get Started with Google
