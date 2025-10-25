@@ -9,12 +9,14 @@ export async function generateGoalPlan(
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 2000))
 
+  const milestonesWithObjectives = generateMockMilestones(request)
+
   // Generate mock plan based on goal category
   const plan: GoalPlan = {
     generatedAt: new Date(),
     llmModel: 'mock-claude-3.5-sonnet',
-    milestones: generateMockMilestones(request),
-    objectives: generateMockObjectives(request),
+    milestones: milestonesWithObjectives,
+    objectives: milestonesWithObjectives.flatMap(m => m.objectives),
     taskTemplate: generateMockTaskTemplate(request),
   }
 
@@ -37,42 +39,65 @@ function generateMockMilestones(request: CreateGoalRequest) {
     const daysToMilestone = Math.floor((totalDays / numMilestones) * (i + 1))
     const targetDate = new Date(startDate.getTime() + daysToMilestone * 24 * 60 * 60 * 1000)
 
+    // Generate objectives for this milestone
+    const objectives = []
+    const numObjectives = 2
+    for (let j = 0; j < numObjectives; j++) {
+      const objectiveTargetDate = new Date(
+        targetDate.getTime() - (numObjectives - j) * 7 * 24 * 60 * 60 * 1000
+      )
+
+      // Generate tasks for this objective
+      const tasks = []
+      const numTasks = 3
+      for (let k = 0; k < numTasks; k++) {
+        tasks.push({
+          id: `m${i + 1}_o${j + 1}_t${k + 1}`,
+          description: `${getTaskDescription(request.category, k)}`,
+          status: 'pending' as const,
+        })
+      }
+
+      objectives.push({
+        id: `m${i + 1}_o${j + 1}`,
+        milestoneId: `m${i + 1}`,
+        description: `${getObjectiveTitle(request.category, j)}`,
+        targetDate: objectiveTargetDate,
+        status: 'pending' as const,
+        estimatedHours: 10 + j * 5,
+        tasks,
+      })
+    }
+
     milestones.push({
       id: `m${i + 1}`,
       title: getMilestoneTitle(request.category, i),
-      description: `Complete ${getMilestoneTitle(request.category, i).toLowerCase()} by ${targetDate.toLocaleDateString()}`,
+      description: getMilestoneTitle(request.category, i),
       targetDate,
+      icon: getMilestoneIcon(i),
       status: 'pending' as const,
+      objectives,
     })
   }
 
   return milestones
 }
 
-function generateMockObjectives(request: CreateGoalRequest) {
-  const objectives: any[] = []
-  const milestones = generateMockMilestones(request)
+function getMilestoneIcon(index: number): string {
+  const icons = ['🎯', '📚', '✨', '🏆']
+  return icons[index] || '🎯'
+}
 
-  milestones.forEach((milestone, mIndex) => {
-    const numObjectives = 3
-    for (let i = 0; i < numObjectives; i++) {
-      const targetDate = new Date(
-        milestone.targetDate.getTime() - (numObjectives - i) * 7 * 24 * 60 * 60 * 1000
-      )
-
-      objectives.push({
-        id: `o${mIndex + 1}_${i + 1}`,
-        milestoneId: milestone.id,
-        title: `${getObjectiveTitle(request.category, i)}`,
-        description: `Work towards ${getObjectiveTitle(request.category, i).toLowerCase()}`,
-        targetDate,
-        status: 'pending' as const,
-        estimatedHours: 10 + i * 5,
-      })
-    }
-  })
-
-  return objectives
+function getTaskDescription(category: string, index: number): string {
+  const tasks = [
+    'Practice core techniques daily',
+    'Complete foundational exercises',
+    'Apply skills to real projects',
+    'Get feedback and iterate',
+    'Document your progress',
+    'Refine and improve',
+  ]
+  return tasks[index] || `Task ${index + 1}`
 }
 
 function generateMockTaskTemplate(request: CreateGoalRequest) {

@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import QuestionStep from '@/components/goals/QuestionStep'
 import { GOAL_CATEGORIES, QUESTIONNAIRE_STEPS } from '@/lib/constants/goals'
 import { CreateGoalRequest } from '@/types'
 
-export default function QuestionnairePage() {
+function QuestionnaireContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
@@ -52,15 +52,16 @@ export default function QuestionnairePage() {
     // Type-specific validation
     if (question.type === 'text' || question.type === 'textarea') {
       const textValue = value as string
-      if (question.validation?.min && textValue.length < question.validation.min) {
+      const validation = question.validation as { min?: number; max?: number } | undefined
+      if (validation?.min && textValue.length < validation.min) {
         setErrors({
-          [question.id]: `Please enter at least ${question.validation.min} characters`,
+          [question.id]: `Please enter at least ${validation.min} characters`,
         })
         return false
       }
-      if (question.validation?.max && textValue.length > question.validation.max) {
+      if (validation?.max && textValue.length > validation.max) {
         setErrors({
-          [question.id]: `Please keep it under ${question.validation.max} characters`,
+          [question.id]: `Please keep it under ${validation.max} characters`,
         })
         return false
       }
@@ -68,9 +69,10 @@ export default function QuestionnairePage() {
 
     if (question.type === 'checkbox') {
       const arrayValue = value as string[]
-      if (question.validation?.min && arrayValue.length < question.validation.min) {
+      const validation = question.validation as { min?: number; max?: number } | undefined
+      if (validation?.min && arrayValue.length < validation.min) {
         setErrors({
-          [question.id]: `Please select at least ${question.validation.min} option(s)`,
+          [question.id]: `Please select at least ${validation.min} option(s)`,
         })
         return false
       }
@@ -233,5 +235,22 @@ export default function QuestionnairePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function QuestionnairePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <QuestionnaireContent />
+    </Suspense>
   )
 }

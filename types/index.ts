@@ -78,21 +78,31 @@ export interface Milestone {
   title: string
   description: string
   targetDate: Date
+  icon?: string
   status: 'pending' | 'in_progress' | 'completed'
   completedAt?: Date
   calendarEventId?: string
+  objectives: Objective[]
 }
 
 export interface Objective {
   id: string
-  milestoneId: string
-  title: string
+  milestoneId?: string
+  title?: string
   description: string
-  targetDate: Date
+  targetDate?: Date
   status: 'pending' | 'in_progress' | 'completed'
   completedAt?: Date
   calendarEventId?: string
   estimatedHours?: number
+  tasks: Task[]
+}
+
+export interface Task {
+  id: string
+  description: string
+  status: 'pending' | 'in_progress' | 'completed'
+  completedAt?: Date
 }
 
 export interface TaskTemplate {
