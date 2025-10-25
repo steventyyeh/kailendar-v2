@@ -26,16 +26,28 @@ export default function DashboardPage() {
   const fetchDashboard = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/dashboard')
-      const result = await response.json()
+      setError(null)
 
-      if (result.success) {
+      const response = await fetch('/api/dashboard')
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log('Dashboard API response:', result)
+
+      if (result.success && result.data) {
         setDashboardData(result.data)
+        setError(null)
       } else {
-        setError(result.error?.message || 'Failed to load dashboard')
+        const errorMsg = result.error?.message || 'Failed to load dashboard data'
+        setError(errorMsg)
+        console.error('Dashboard error:', result.error)
       }
     } catch (err) {
-      setError('Failed to load dashboard. Please try again.')
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load dashboard. Please try again.'
+      setError(errorMsg)
       console.error('Dashboard fetch error:', err)
     } finally {
       setLoading(false)
@@ -75,7 +87,13 @@ export default function DashboardPage() {
   }
 
   if (!dashboardData) {
-    return null
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <p className="text-gray-600">No dashboard data available</p>
+        </div>
+      </div>
+    )
   }
 
   const { activeGoals, todaysTasks, upcomingMilestones, recentResources, stats } =
