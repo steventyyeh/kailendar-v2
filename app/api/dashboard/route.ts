@@ -1,0 +1,249 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { getUser, getUserGoals } from '@/lib/firebase/db'
+import { ApiResponse, DashboardData, DailyTask, WeeklyStats } from '@/types'
+
+export async function GET(request: NextRequest) {
+  try {
+    // Check authentication
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json<ApiResponse>(
+        {
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'You must be signed in to view dashboard',
+          },
+        },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.email
+
+    // Fetch user data
+    const user = await getUser(userId)
+
+    // If user doesn't exist, create mock user data
+    if (!user) {
+      const mockDashboard = createMockDashboardData(session.user)
+      return NextResponse.json<ApiResponse<DashboardData>>(
+        {
+          success: true,
+          data: mockDashboard,
+          meta: {
+            timestamp: new Date().toISOString(),
+            requestId: crypto.randomUUID(),
+          },
+        },
+        { status: 200 }
+      )
+    }
+
+    // Fetch active goals
+    const activeGoals = await getUserGoals(userId, 'active')
+
+    // Generate today's tasks from active goals
+    const todaysTasks: DailyTask[] = activeGoals.flatMap(goal =>
+      generateDailyTasksForGoal(goal)
+    )
+
+    // Get upcoming milestones
+    const upcomingMilestones = activeGoals
+      .flatMap(goal => goal.plan?.milestones || [])
+      .filter(m => m.status === 'pending')
+      .sort((a, b) => a.targetDate.getTime() - b.targetDate.getTime())
+      .slice(0, 3)
+
+    // Get recent resources
+    const recentResources = activeGoals
+      .flatMap(goal => goal.resources || [])
+      .filter(r => r.unlockedAt)
+      .sort(
+        (a, b) => (b.unlockedAt?.getTime() || 0) - (a.unlockedAt?.getTime() || 0)
+      )
+      .slice(0, 5)
+
+    // Calculate weekly stats
+    const stats: WeeklyStats = {
+      completionRate: calculateAverageCompletionRate(activeGoals),
+      hoursInvested: calculateTotalHoursThisWeek(activeGoals),
+      tasksCompleted: calculateTasksCompletedThisWeek(activeGoals),
+      currentStreak: Math.max(...activeGoals.map(g => g.progress.currentStreak || 0)),
+    }
+
+    const dashboardData: DashboardData = {
+      user,
+      activeGoals,
+      todaysTasks,
+      upcomingMilestones,
+      recentResources,
+      stats,
+    }
+
+    return NextResponse.json<ApiResponse<DashboardData>>(
+      {
+        success: true,
+        data: dashboardData,
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: crypto.randomUUID(),
+        },
+      },
+      { status: 200 }
+    )
+  } catch (error) {
+    console.error('Error fetching dashboard:', error)
+    return NextResponse.json<ApiResponse>(
+      {
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to load dashboard. Please try again.',
+        },
+      },
+      { status: 500 }
+    )
+  }
+}
+
+function generateDailyTasksForGoal(goal: any): DailyTask[] {
+  const tasks: DailyTask[] = []
+  const today = new Date()
+  const dayOfWeek = today.getDay()
+
+  // Get recurring tasks scheduled for today
+  const recurringTasks = goal.plan?.taskTemplate?.recurringTasks || []
+  recurringTasks.forEach((task: any, index: number) => {
+    if (
+      task.frequency === 'daily' ||
+      (task.daysOfWeek && task.daysOfWeek.includes(dayOfWeek))
+    ) {
+      tasks.push({
+        id: `${goal.id}_recurring_${index}`,
+        goalId: goal.id,
+        goalTitle: goal.specificity,
+        goalColor: goal.calendar.color,
+        title: task.title,
+        duration: task.duration,
+        completed: false,
+      })
+    }
+  })
+
+  return tasks
+}
+
+function calculateAverageCompletionRate(goals: any[]): number {
+  if (goals.length === 0) return 0
+  const total = goals.reduce((sum, goal) => sum + (goal.progress.completionRate || 0), 0)
+  return Math.round(total / goals.length)
+}
+
+function calculateTotalHoursThisWeek(goals: any[]): number {
+  // Simplified for MVP - divide total minutes by 60 and estimate weekly
+  const totalMinutes = goals.reduce(
+    (sum, goal) => sum + (goal.progress.totalMinutesInvested || 0),
+    0
+  )
+  return Math.round((totalMinutes / 60) * 0.2) // Rough estimate
+}
+
+function calculateTasksCompletedThisWeek(goals: any[]): number {
+  // Simplified for MVP
+  return goals.reduce((sum, goal) => sum + Math.floor((goal.progress.tasksCompleted || 0) * 0.2), 0)
+}
+
+function createMockDashboardData(user: any): DashboardData {
+  const mockGoal = {
+    id: 'mock-goal-1',
+    userId: user.email,
+    status: 'active' as const,
+    category: 'learning' as const,
+    specificity: 'Learn web development with React and Next.js',
+    currentState: 'beginner' as const,
+    targetState: 'Build and deploy full-stack applications',
+    deadline: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    learningStyles: ['hands-on', 'video'],
+    budget: '$100',
+    equipment: 'Laptop',
+    constraints: 'Available weekday evenings',
+    calendar: {
+      color: '#3498DB',
+      eventIds: [],
+    },
+    progress: {
+      totalTasksScheduled: 45,
+      tasksCompleted: 12,
+      completionRate: 27,
+      currentStreak: 3,
+      longestStreak: 5,
+      totalMinutesInvested: 780,
+    },
+    resources: [
+      {
+        id: 'r1',
+        type: 'course' as const,
+        title: 'React Fundamentals',
+        url: 'https://reactjs.org',
+        description: 'Official React documentation and tutorial',
+        addedBy: 'system' as const,
+      },
+    ],
+    createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+    updatedAt: new Date(),
+  }
+
+  const mockTasks: DailyTask[] = [
+    {
+      id: 'task-1',
+      goalId: 'mock-goal-1',
+      goalTitle: 'Learn web development',
+      goalColor: '#3498DB',
+      title: 'Complete React tutorial chapter',
+      duration: 60,
+      completed: false,
+    },
+    {
+      id: 'task-2',
+      goalId: 'mock-goal-1',
+      goalTitle: 'Learn web development',
+      goalColor: '#3498DB',
+      title: 'Practice building components',
+      duration: 90,
+      completed: false,
+    },
+  ]
+
+  return {
+    user: {
+      uid: user.email,
+      email: user.email,
+      displayName: user.name || 'User',
+      photoURL: user.image || '',
+      createdAt: new Date(),
+      lastLoginAt: new Date(),
+      subscription: {
+        status: 'free',
+        plan: 'free',
+      },
+      settings: {
+        emailNotifications: true,
+        weekStartsOn: 0,
+        defaultReminderMinutes: 15,
+      },
+    },
+    activeGoals: [mockGoal],
+    todaysTasks: mockTasks,
+    upcomingMilestones: [],
+    recentResources: mockGoal.resources,
+    stats: {
+      completionRate: 27,
+      hoursInvested: 13,
+      tasksCompleted: 12,
+      currentStreak: 3,
+    },
+  }
+}
