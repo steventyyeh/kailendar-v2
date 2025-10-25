@@ -177,6 +177,56 @@ function createMockDashboardData(user: any): DashboardData {
     budget: '$100',
     equipment: 'Laptop',
     constraints: 'Available weekday evenings',
+    plan: {
+      generatedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+      llmModel: 'mock-claude-3.5-sonnet',
+      milestones: [
+        {
+          id: 'm1',
+          title: 'Master React Fundamentals',
+          description: 'Learn core React concepts and build simple components',
+          targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          icon: '⚛️',
+          status: 'in_progress' as const,
+          objectives: [
+            {
+              id: 'o1',
+              description: 'Complete React tutorial',
+              status: 'in_progress' as const,
+              tasks: [
+                { id: 't1', description: 'Setup React environment', status: 'completed' as const },
+                { id: 't2', description: 'Learn JSX syntax', status: 'in_progress' as const },
+                { id: 't3', description: 'Build first component', status: 'pending' as const },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'm2',
+          title: 'Build Real Projects',
+          description: 'Apply knowledge to real-world applications',
+          targetDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+          icon: '🚀',
+          status: 'pending' as const,
+          objectives: [],
+        },
+      ],
+      objectives: [],
+      taskTemplate: {
+        recurringTasks: [
+          {
+            title: 'Daily coding practice',
+            description: 'Practice React concepts',
+            duration: 60,
+            frequency: 'daily' as const,
+            daysOfWeek: [1, 2, 3, 4, 5],
+            preferredTime: 'evening' as const,
+            skillFocus: 'coding',
+          },
+        ],
+        oneTimeTasks: [],
+      },
+    },
     calendar: {
       color: '#3498DB',
       eventIds: [],
@@ -196,6 +246,14 @@ function createMockDashboardData(user: any): DashboardData {
         title: 'React Fundamentals',
         url: 'https://reactjs.org',
         description: 'Official React documentation and tutorial',
+        addedBy: 'system' as const,
+      },
+      {
+        id: 'r2',
+        type: 'video' as const,
+        title: 'Next.js Tutorial Series',
+        url: 'https://nextjs.org/learn',
+        description: 'Learn Next.js from the official tutorial',
         addedBy: 'system' as const,
       },
     ],
@@ -244,7 +302,7 @@ function createMockDashboardData(user: any): DashboardData {
     },
     activeGoals: [mockGoal],
     todaysTasks: mockTasks,
-    upcomingMilestones: [],
+    upcomingMilestones: mockGoal.plan.milestones.filter(m => m.status === 'pending'),
     recentResources: mockGoal.resources,
     stats: {
       completionRate: 27,

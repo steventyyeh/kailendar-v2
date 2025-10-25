@@ -76,11 +76,41 @@ export default function GoalCard({ goal }: GoalCardProps) {
 
         {goal.plan?.milestones && goal.plan.milestones.length > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-sm font-medium text-gray-700">Next Milestone:</p>
-            <p className="text-sm text-gray-600 mt-1">
-              {goal.plan.milestones.find(m => m.status === 'pending')?.title ||
-                goal.plan.milestones[0].title}
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-gray-700">Milestones</p>
+              <p className="text-xs text-gray-500">
+                {goal.plan.milestones.filter(m => m.status === 'completed').length} /{' '}
+                {goal.plan.milestones.length} complete
+              </p>
+            </div>
+            <div className="flex gap-1">
+              {goal.plan.milestones.map((milestone) => (
+                <div
+                  key={milestone.id}
+                  className={`flex-1 h-2 rounded-full ${
+                    milestone.status === 'completed'
+                      ? 'bg-green-500'
+                      : milestone.status === 'in_progress'
+                      ? 'bg-blue-500'
+                      : 'bg-gray-200'
+                  }`}
+                  title={`${milestone.icon} ${milestone.title} - ${milestone.status}`}
+                />
+              ))}
+            </div>
+            {(() => {
+              const nextMilestone = goal.plan.milestones.find(
+                (m) => m.status === 'pending' || m.status === 'in_progress'
+              )
+              return (
+                nextMilestone && (
+                  <p className="text-sm text-gray-600 mt-2">
+                    <span className="font-medium">Next:</span> {nextMilestone.icon}{' '}
+                    {nextMilestone.description}
+                  </p>
+                )
+              )
+            })()}
           </div>
         )}
       </div>
