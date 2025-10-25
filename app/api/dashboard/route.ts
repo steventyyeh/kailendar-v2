@@ -8,16 +8,24 @@ export async function GET(request: NextRequest) {
   try {
     // Check authentication
     const session = await getServerSession(authOptions)
+
+    // If no session, return demo data
     if (!session?.user?.email) {
-      return NextResponse.json<ApiResponse>(
+      const mockDashboard = createMockDashboardData({
+        email: 'demo@example.com',
+        name: 'Demo User',
+        image: null,
+      })
+      return NextResponse.json<ApiResponse<DashboardData>>(
         {
-          success: false,
-          error: {
-            code: 'UNAUTHORIZED',
-            message: 'You must be signed in to view dashboard',
+          success: true,
+          data: mockDashboard,
+          meta: {
+            timestamp: new Date().toISOString(),
+            requestId: crypto.randomUUID(),
           },
         },
-        { status: 401 }
+        { status: 200 }
       )
     }
 

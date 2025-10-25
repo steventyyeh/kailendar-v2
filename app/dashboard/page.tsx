@@ -15,15 +15,13 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin')
+    if (status === 'loading') {
       return
     }
 
-    if (status === 'authenticated') {
-      fetchDashboard()
-    }
-  }, [status, router])
+    // Allow both authenticated users and demo mode
+    fetchDashboard()
+  }, [status])
 
   const fetchDashboard = async () => {
     try {
@@ -83,13 +81,36 @@ export default function DashboardPage() {
   const { activeGoals, todaysTasks, upcomingMilestones, recentResources, stats } =
     dashboardData
 
+  const isDemoMode = !session
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+      {/* Demo Mode Banner */}
+      {isDemoMode && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">👋</span>
+            <div>
+              <h3 className="font-semibold text-blue-900">Demo Mode</h3>
+              <p className="text-sm text-blue-700">
+                You're viewing a demo dashboard. Sign in to create your own goals and track progress!
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push('/auth/signin')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
+          >
+            Sign In
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            Welcome back, {dashboardData.user.displayName}!
+            Welcome back{dashboardData.user.displayName ? `, ${dashboardData.user.displayName}` : ''}!
           </h1>
           <p className="text-gray-600 mt-1">
             {new Date().toLocaleDateString('en-US', {
@@ -101,10 +122,10 @@ export default function DashboardPage() {
           </p>
         </div>
         <button
-          onClick={() => router.push('/goals/new')}
+          onClick={() => isDemoMode ? router.push('/auth/signin') : router.push('/goals/new')}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
         >
-          + Create New Goal
+          {isDemoMode ? 'Sign In to Create Goals' : '+ Create New Goal'}
         </button>
       </div>
 
@@ -171,10 +192,10 @@ export default function DashboardPage() {
               Start your journey by creating your first goal!
             </p>
             <button
-              onClick={() => router.push('/goals/new')}
+              onClick={() => isDemoMode ? router.push('/auth/signin') : router.push('/goals/new')}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
             >
-              Create Your First Goal
+              {isDemoMode ? 'Sign In to Create Goals' : 'Create Your First Goal'}
             </button>
           </div>
         )}
