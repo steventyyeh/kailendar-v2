@@ -5,24 +5,22 @@ import { getFirestore } from 'firebase-admin/firestore'
 // Initialize Firebase Admin (singleton pattern)
 const apps = getApps()
 
-let adminApp
+let adminApp: any = null
+let adminDb: any = null
 
-if (apps.length === 0) {
-  // In production, use service account key
-  // In development, you can use application default credentials
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+// Only initialize if Firebase credentials are available
+if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+  if (apps.length === 0) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
     adminApp = initializeApp({
       credential: cert(serviceAccount),
     })
   } else {
-    // Fallback for local development - will use emulator or default credentials
-    adminApp = initializeApp()
+    adminApp = apps[0]
   }
-} else {
-  adminApp = apps[0]
+
+  adminDb = getFirestore(adminApp)
 }
 
-const adminDb = getFirestore(adminApp)
-
+// Export null if Firebase is not configured - functions will handle this gracefully
 export { adminApp, adminDb }
