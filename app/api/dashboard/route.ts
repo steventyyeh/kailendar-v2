@@ -117,23 +117,27 @@ function generateDailyTasksForGoal(goal: any): DailyTask[] {
   const dayOfWeek = today.getDay()
 
   // Get recurring tasks scheduled for today
-  const recurringTasks = goal.plan?.taskTemplate?.recurringTasks || []
-  recurringTasks.forEach((task: any, index: number) => {
-    if (
-      task.frequency === 'daily' ||
-      (task.daysOfWeek && task.daysOfWeek.includes(dayOfWeek))
-    ) {
-      tasks.push({
-        id: `${goal.id}_recurring_${index}`,
-        goalId: goal.id,
-        goalTitle: goal.specificity,
-        goalColor: goal.calendar?.color || '#3498DB',
-        title: task.title,
-        duration: task.duration,
-        completed: false,
-      })
-    }
-  })
+  const recurringTasks = goal.plan?.taskTemplate?.recurringTasks
+
+  // Ensure recurringTasks is an array before calling forEach
+  if (Array.isArray(recurringTasks)) {
+    recurringTasks.forEach((task: any, index: number) => {
+      if (
+        task.frequency === 'daily' ||
+        (task.daysOfWeek && task.daysOfWeek.includes(dayOfWeek))
+      ) {
+        tasks.push({
+          id: `${goal.id}_recurring_${index}`,
+          goalId: goal.id,
+          goalTitle: goal.specificity,
+          goalColor: goal.calendar?.color || '#3498DB',
+          title: task.title,
+          duration: task.duration,
+          completed: false,
+        })
+      }
+    })
+  }
 
   return tasks
 }
