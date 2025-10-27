@@ -29,22 +29,29 @@ export async function GET(request: NextRequest) {
     }
 
     // Get or create user in Firebase
+    console.log('[Dashboard] Getting user:', session.user.email)
     const user = await getOrCreateUser({
       uid: session.user.email,
       email: session.user.email,
       displayName: session.user.name || '',
       photoURL: session.user.image || '',
     })
+    console.log('[Dashboard] User fetched:', user.uid)
 
     // Fetch active goals
+    console.log('[Dashboard] Fetching active goals for user:', user.uid)
     const activeGoals = await getUserGoals(user.uid, 'active')
+    console.log('[Dashboard] Found active goals:', activeGoals.length)
 
     // Generate today's tasks from active goals
+    console.log('[Dashboard] Generating daily tasks')
     const todaysTasks: DailyTask[] = activeGoals.flatMap(goal =>
       generateDailyTasksForGoal(goal)
     )
+    console.log('[Dashboard] Generated tasks:', todaysTasks.length)
 
     // Get upcoming milestones
+    console.log('[Dashboard] Processing milestones')
     const upcomingMilestones = activeGoals
       .flatMap(goal => goal.plan?.milestones || [])
       .filter(m => m.status === 'pending')
@@ -52,6 +59,7 @@ export async function GET(request: NextRequest) {
       .slice(0, 3)
 
     // Get recent resources
+    console.log('[Dashboard] Processing resources')
     const recentResources = activeGoals
       .flatMap(goal => goal.resources || [])
       .filter(r => r.unlockedAt)
@@ -65,7 +73,7 @@ export async function GET(request: NextRequest) {
       completionRate: calculateAverageCompletionRate(activeGoals),
       hoursInvested: calculateTotalHoursThisWeek(activeGoals),
       tasksCompleted: calculateTasksCompletedThisWeek(activeGoals),
-      currentStreak: Math.max(...activeGoals.map(g => g.progress.currentStreak || 0)),
+      currentStreak: activeGoals.length > 0 ? Math.max(...activeGoals.map(g => g.progress?.currentStreak || 0)) : 0,
     }
 
     const dashboardData: DashboardData = {
@@ -119,7 +127,7 @@ function generateDailyTasksForGoal(goal: any): DailyTask[] {
         id: `${goal.id}_recurring_${index}`,
         goalId: goal.id,
         goalTitle: goal.specificity,
-        goalColor: goal.calendar.color,
+        goalColor: goal.calendar?.color || '#3498DB',
         title: task.title,
         duration: task.duration,
         completed: false,
@@ -132,14 +140,14 @@ function generateDailyTasksForGoal(goal: any): DailyTask[] {
 
 function calculateAverageCompletionRate(goals: any[]): number {
   if (goals.length === 0) return 0
-  const total = goals.reduce((sum, goal) => sum + (goal.progress.completionRate || 0), 0)
+  const total = goals.reduce((sum, goal) => sum + (goal.progress?.completionRate || 0), 0)
   return Math.round(total / goals.length)
 }
 
 function calculateTotalHoursThisWeek(goals: any[]): number {
   // Simplified for MVP - divide total minutes by 60 and estimate weekly
   const totalMinutes = goals.reduce(
-    (sum, goal) => sum + (goal.progress.totalMinutesInvested || 0),
+    (sum, goal) => sum + (goal.progress?.totalMinutesInvested || 0),
     0
   )
   return Math.round((totalMinutes / 60) * 0.2) // Rough estimate
@@ -147,7 +155,7 @@ function calculateTotalHoursThisWeek(goals: any[]): number {
 
 function calculateTasksCompletedThisWeek(goals: any[]): number {
   // Simplified for MVP
-  return goals.reduce((sum, goal) => sum + Math.floor((goal.progress.tasksCompleted || 0) * 0.2), 0)
+  return goals.reduce((sum, goal) => sum + Math.floor((goal.progress?.tasksCompleted || 0) * 0.2), 0)
 }
 
 function createMockDashboardData(user: any): DashboardData {
