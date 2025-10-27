@@ -52,7 +52,8 @@ export async function GET() {
 
     // Build active goals progress
     const activeGoalsProgress = activeGoals.map((goal) => {
-      const nextMilestone = goal.plan?.milestones?.find((m) => m.status !== 'completed')
+      const milestones = Array.isArray(goal.plan?.milestones) ? goal.plan.milestones : []
+      const nextMilestone = milestones.find((m) => m.status !== 'completed')
       const daysToMilestone = nextMilestone
         ? Math.ceil((nextMilestone.targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         : 0
@@ -72,8 +73,9 @@ export async function GET() {
 
     // Calculate milestone deltas (simplified)
     const milestoneDelta = activeGoals
-      .flatMap((goal) =>
-        (goal.plan?.milestones || [])
+      .flatMap((goal) => {
+        const milestones = Array.isArray(goal.plan?.milestones) ? goal.plan.milestones : []
+        return milestones
           .filter((m) => m.status !== 'completed')
           .map((milestone) => {
             const actualProgress = goal.progress?.completionRate || 0
@@ -99,22 +101,22 @@ export async function GET() {
                 delta > 5 ? 'ahead' : delta < -5 ? 'slightly_behind' : ('on_track' as const),
             }
           })
-      )
+      })
       .slice(0, 5) // Limit to 5 most recent
 
     // Build recent activity from completed tasks/milestones (simplified)
     const recentActivity = activeGoals
       .flatMap((goal) => {
-        const completedMilestones =
-          goal.plan?.milestones
-            ?.filter((m) => m.status === 'completed' && m.completedAt)
-            .map((m) => ({
-              id: `${goal.id}_${m.id}`,
-              type: 'milestone_completed' as const,
-              goalName: goal.specificity,
-              description: `Milestone reached: ${m.title}`,
-              timestamp: m.completedAt!.toISOString(),
-            })) || []
+        const milestones = Array.isArray(goal.plan?.milestones) ? goal.plan.milestones : []
+        const completedMilestones = milestones
+          .filter((m) => m.status === 'completed' && m.completedAt)
+          .map((m) => ({
+            id: `${goal.id}_${m.id}`,
+            type: 'milestone_completed' as const,
+            goalName: goal.specificity,
+            description: `Milestone reached: ${m.title}`,
+            timestamp: m.completedAt!.toISOString(),
+          }))
 
         // For tasks, we'd need to track individual task completions
         // For now, use progress.lastCompletedTask if available
