@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
+import { getGoal, updateGoal } from '@/lib/firebase/db'
 
 export async function POST(
   request: NextRequest,
@@ -17,14 +18,28 @@ export async function POST(
 
     const { id: goalId } = await params
 
-    // TODO: Update goal status to 'active' in Firebase
-    // For now, using mock data
-    const mockGoal = {
-      id: goalId,
-      userId: session.user.email,
-      status: 'active',
-      updatedAt: new Date().toISOString(),
+    // Fetch goal from Firebase
+    const goal = await getGoal(goalId)
+
+    if (!goal) {
+      return NextResponse.json(
+        { success: false, error: { message: 'Goal not found' } },
+        { status: 404 }
+      )
     }
+
+    // Verify the goal belongs to the current user
+    if (goal.userId !== session.user.email) {
+      return NextResponse.json(
+        { success: false, error: { message: 'Unauthorized' } },
+        { status: 403 }
+      )
+    }
+
+    // Update goal status to 'active' in Firebase
+    await updateGoal(goalId, {
+      status: 'active',
+    })
 
     // TODO: Create calendar events for milestones/objectives via Google Calendar API
     // This would:
@@ -33,9 +48,11 @@ export async function POST(
     // 3. Create calendar events with proper titles, descriptions, reminders
     // 4. Store calendar event IDs in the goal document
 
+    const updatedGoal = await getGoal(goalId)
+
     return NextResponse.json({
       success: true,
-      data: mockGoal,
+      data: updatedGoal,
     })
   } catch (error) {
     console.error('Error approving goal:', error)

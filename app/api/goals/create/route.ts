@@ -140,7 +140,7 @@ async function generatePlanInBackground(
 
     // Update goal with generated plan
     const { updateGoal } = await import('@/lib/firebase/db')
-    await updateGoal(userId, goalId, {
+    await updateGoal(goalId, {
       status: 'ready',
       plan,
       resources,
@@ -152,7 +152,7 @@ async function generatePlanInBackground(
 
     // Update goal status to error
     const { updateGoal } = await import('@/lib/firebase/db')
-    await updateGoal(userId, goalId, {
+    await updateGoal(goalId, {
       status: 'deleted', // Mark as error/deleted
     })
   }

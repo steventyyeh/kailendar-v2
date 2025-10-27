@@ -1,98 +1,73 @@
 import { NextResponse } from 'next/server'
+import { auth } from '@/auth'
+import { getUserGoals } from '@/lib/firebase/db'
 
 export async function GET() {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
+  try {
+    const session = await auth()
 
-  const mockData = {
-    resources: [
-      {
-        id: 'r1',
-        type: 'course',
-        title: 'React Fundamentals',
-        description: 'Official React documentation and interactive tutorial',
-        url: 'https://reactjs.org',
-        goalId: 'goal-1',
-        goalName: 'Learn web development with React and Next.js',
-        addedBy: 'system',
-        addedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-        cost: 'free',
-        estimatedHours: 8,
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'You must be signed in',
+          },
+        },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.email
+
+    // Get all goals for the user
+    const goals = await getUserGoals(userId)
+
+    // Extract resources from all goals and flatten them
+    const resources = goals.flatMap((goal) =>
+      (goal.resources || []).map((resource) => ({
+        id: resource.id,
+        type: resource.type,
+        title: resource.title,
+        description: resource.description,
+        url: resource.url || '',
+        goalId: goal.id,
+        goalName: goal.specificity,
+        addedBy: resource.addedBy,
+        addedAt: resource.unlockedAt?.toISOString() || new Date().toISOString(),
+        cost: resource.cost || 'free',
+        estimatedHours: 0, // Not currently tracked in Goal resource type
+      }))
+    )
+
+    // Count resources by goal
+    const resourcesByGoal: Record<string, number> = {}
+    goals.forEach((goal) => {
+      const count = goal.resources?.length || 0
+      if (count > 0) {
+        resourcesByGoal[goal.id] = count
+      }
+    })
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        resources,
+        resourcesByGoal,
       },
+    })
+  } catch (error) {
+    console.error('Error fetching resources:', error)
+    return NextResponse.json(
       {
-        id: 'r2',
-        type: 'video',
-        title: 'Next.js Tutorial Series',
-        description: 'Learn Next.js from the official tutorial with practical examples',
-        url: 'https://nextjs.org/learn',
-        goalId: 'goal-1',
-        goalName: 'Learn web development with React and Next.js',
-        addedBy: 'system',
-        addedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-        cost: 'free',
-        estimatedHours: 12,
+        success: false,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to fetch resources',
+        },
       },
-      {
-        id: 'r3',
-        type: 'book',
-        title: 'Learning React, 2nd Edition',
-        description: 'A hands-on guide to building web applications using React and Redux',
-        url: 'https://www.oreilly.com/library/view/learning-react-2nd/9781492051718/',
-        goalId: 'goal-1',
-        goalName: 'Learn web development with React and Next.js',
-        addedBy: 'user',
-        addedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-        cost: '$29',
-        estimatedHours: 20,
-      },
-      {
-        id: 'r4',
-        type: 'course',
-        title: 'Couch to 5K Running Plan',
-        description: 'Beginner-friendly running program to build endurance',
-        url: 'https://www.c25k.com',
-        goalId: 'goal-2',
-        goalName: 'Run a half marathon',
-        addedBy: 'system',
-        addedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        cost: 'free',
-        estimatedHours: 0,
-      },
-      {
-        id: 'r5',
-        type: 'app',
-        title: 'Strava Running Tracker',
-        description: 'Track your runs, analyze performance, and connect with other runners',
-        url: 'https://www.strava.com',
-        goalId: 'goal-2',
-        goalName: 'Run a half marathon',
-        addedBy: 'user',
-        addedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        cost: 'free',
-        estimatedHours: 0,
-      },
-      {
-        id: 'r6',
-        type: 'community',
-        title: 'r/running Reddit Community',
-        description: 'Connect with runners worldwide, get advice, and share progress',
-        url: 'https://reddit.com/r/running',
-        goalId: 'goal-2',
-        goalName: 'Run a half marathon',
-        addedBy: 'user',
-        addedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        cost: 'free',
-        estimatedHours: 0,
-      },
-    ],
-    resourcesByGoal: {
-      'goal-1': 3,
-      'goal-2': 3,
-    },
+      { status: 500 }
+    )
   }
-
-  return NextResponse.json({
-    success: true,
-    data: mockData,
-  })
 }

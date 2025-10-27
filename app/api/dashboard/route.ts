@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { getUser, getUserGoals } from '@/lib/firebase/db'
+import { getOrCreateUser, getUserGoals } from '@/lib/firebase/db'
 import { ApiResponse, DashboardData, DailyTask, WeeklyStats } from '@/types'
 
 export async function GET(request: NextRequest) {
@@ -28,29 +28,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const userId = session.user.email
-
-    // Fetch user data
-    const user = await getUser(userId)
-
-    // If user doesn't exist, create mock user data
-    if (!user) {
-      const mockDashboard = createMockDashboardData(session.user)
-      return NextResponse.json<ApiResponse<DashboardData>>(
-        {
-          success: true,
-          data: mockDashboard,
-          meta: {
-            timestamp: new Date().toISOString(),
-            requestId: crypto.randomUUID(),
-          },
-        },
-        { status: 200 }
-      )
-    }
+    // Get or create user in Firebase
+    const user = await getOrCreateUser({
+      uid: session.user.email,
+      email: session.user.email,
+      displayName: session.user.name || '',
+      photoURL: session.user.image || '',
+    })
 
     // Fetch active goals
-    const activeGoals = await getUserGoals(userId, 'active')
+    const activeGoals = await getUserGoals(user.uid, 'active')
 
     // Generate today's tasks from active goals
     const todaysTasks: DailyTask[] = activeGoals.flatMap(goal =>
