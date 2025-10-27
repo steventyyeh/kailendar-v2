@@ -51,13 +51,14 @@ export default function ProgressPage() {
     const fetchProgress = async () => {
       try {
         setLoading(true)
-        const response = await fetch('/api/mock/progress')
+        // Use the real API endpoint
+        const response = await fetch('/api/progress')
         const result = await response.json()
 
         if (result.success) {
           setData(result.data)
         } else {
-          setError('Failed to load progress data')
+          setError(result.error?.message || 'Failed to load progress data')
         }
       } catch (err) {
         console.error('Error fetching progress:', err)
@@ -67,8 +68,10 @@ export default function ProgressPage() {
       }
     }
 
-    fetchProgress()
-  }, [])
+    if (session) {
+      fetchProgress()
+    }
+  }, [session])
 
   if (loading) {
     return (
@@ -84,17 +87,51 @@ export default function ProgressPage() {
     )
   }
 
-  if (error || !data) {
+  if (error) {
     return (
       <div className="max-w-7xl mx-auto">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
-          {error || 'No data available'}
+          {error}
+        </div>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+          <p className="text-gray-600 text-lg mb-4">No progress data available yet.</p>
+          <p className="text-gray-500 text-sm">Create your first goal to start tracking progress!</p>
         </div>
       </div>
     )
   }
 
   const { weeklyStats, activeGoalsProgress, milestoneDelta, recentActivity } = data
+
+  // Show empty state if no active goals
+  if (activeGoalsProgress.length === 0) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Progress Overview</h1>
+          <p className="text-gray-600 mt-1">Track your weekly performance and goal progress</p>
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center">
+          <div className="text-6xl mb-4">📊</div>
+          <p className="text-gray-800 text-xl font-semibold mb-2">No active goals yet</p>
+          <p className="text-gray-600 mb-6">Create your first goal to see your progress here!</p>
+          <a
+            href="/goals/new"
+            className="inline-block px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Create Goal
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">

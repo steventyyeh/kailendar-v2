@@ -14,22 +14,11 @@ interface UserData {
   subscription: {
     status: string
     plan: string
-    activeGoals: number
-    maxGoals: number
   }
   settings: {
     emailNotifications: boolean
     weekStartsOn: number
     defaultReminderMinutes: number
-    timezone: string
-    theme: string
-  }
-  stats: {
-    totalGoalsCreated: number
-    totalGoalsCompleted: number
-    currentStreak: number
-    longestStreak: number
-    totalHoursInvested: number
   }
 }
 
@@ -50,7 +39,8 @@ export default function SettingsPage() {
     const fetchUser = async () => {
       try {
         setLoading(true)
-        const response = await fetch('/api/mock/user')
+        // Use the real API endpoint
+        const response = await fetch('/api/user/profile')
         const result = await response.json()
 
         if (result.success) {
@@ -59,9 +49,9 @@ export default function SettingsPage() {
           setEmailNotifications(result.data.settings.emailNotifications)
           setWeekStartsOn(result.data.settings.weekStartsOn)
           setDefaultReminderMinutes(result.data.settings.defaultReminderMinutes)
-          setTheme(result.data.settings.theme)
+          setTheme(result.data.settings.theme || 'light')
         } else {
-          setError('Failed to load user data')
+          setError(result.error?.message || 'Failed to load user data')
         }
       } catch (err) {
         console.error('Error fetching user:', err)
@@ -71,18 +61,47 @@ export default function SettingsPage() {
       }
     }
 
-    fetchUser()
-  }, [])
+    if (session) {
+      fetchUser()
+    }
+  }, [session])
 
   const handleSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          settings: {
+            emailNotifications,
+            weekStartsOn,
+            defaultReminderMinutes,
+          },
+        }),
+      })
 
-    alert('Settings saved successfully! (API integration pending)')
-    setSaving(false)
+      const result = await response.json()
+
+      if (result.success) {
+        alert('Settings saved successfully!')
+        // Refresh user data
+        const refreshResponse = await fetch('/api/user/profile')
+        const refreshResult = await refreshResponse.json()
+        if (refreshResult.success) {
+          setData(refreshResult.data)
+        }
+      } else {
+        alert(result.error?.message || 'Failed to save settings')
+      }
+    } catch (err) {
+      console.error('Error saving settings:', err)
+      alert('Failed to save settings')
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loading) {
@@ -144,7 +163,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
           <div>
             <p className="text-sm text-gray-500 mb-1">Subscription</p>
             <p className="font-semibold text-gray-900 capitalize">
@@ -152,39 +171,10 @@ export default function SettingsPage() {
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-500 mb-1">Active Goals</p>
+            <p className="text-sm text-gray-500 mb-1">Member Since</p>
             <p className="font-semibold text-gray-900">
-              {data.subscription.activeGoals} / {data.subscription.maxGoals}
+              {new Date(data.createdAt).toLocaleDateString()}
             </p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 mb-1">Current Streak</p>
-            <p className="font-semibold text-gray-900">
-              {data.stats.currentStreak} days 🔥
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-2xl font-bold text-blue-600">
-                {data.stats.totalGoalsCreated}
-              </p>
-              <p className="text-sm text-gray-600">Goals Created</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-green-600">
-                {data.stats.totalGoalsCompleted}
-              </p>
-              <p className="text-sm text-gray-600">Goals Completed</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-orange-600">
-                {data.stats.totalHoursInvested}h
-              </p>
-              <p className="text-sm text-gray-600">Hours Invested</p>
-            </div>
           </div>
         </div>
       </div>
@@ -275,7 +265,7 @@ export default function SettingsPage() {
           <div>
             <label className="block font-medium text-gray-900 mb-2">Timezone</label>
             <p className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
-              {data.settings.timezone}
+              {Intl.DateTimeFormat().resolvedOptions().timeZone}
             </p>
             <p className="text-xs text-gray-500 mt-2">
               Timezone is automatically detected from your browser
