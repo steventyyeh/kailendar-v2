@@ -222,6 +222,18 @@ export const createResource = async (userId: string, resourceData: any): Promise
   return resourceRef.id
 }
 
+export const getResource = async (resourceId: string): Promise<any | null> => {
+  if (!adminDb) {
+    return null
+  }
+
+  const doc = await adminDb.collection('resources').doc(resourceId).get()
+  if (!doc.exists) return null
+
+  const data = convertTimestamps(doc.data())
+  return { id: doc.id, ...data }
+}
+
 export const getUserResources = async (userId: string, goalId?: string): Promise<any[]> => {
   if (!adminDb) {
     return []
@@ -239,6 +251,17 @@ export const getUserResources = async (userId: string, goalId?: string): Promise
   return snapshot.docs.map((doc: any) => {
     const data = convertTimestamps(doc.data())
     return { id: doc.id, ...data }
+  })
+}
+
+export const updateResource = async (resourceId: string, updates: any): Promise<void> => {
+  if (!adminDb) {
+    throw new Error('Firebase not configured')
+  }
+
+  await adminDb.collection('resources').doc(resourceId).update({
+    ...updates,
+    updatedAt: new Date(),
   })
 }
 
