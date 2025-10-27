@@ -65,6 +65,52 @@ export const updateUser = async (userId: string, updates: Partial<User>): Promis
   })
 }
 
+export const updateUserTokens = async (
+  userId: string,
+  tokens: {
+    refreshToken: string
+    accessToken: string
+    expiryDate: Date
+  }
+): Promise<void> => {
+  if (!adminDb) {
+    throw new Error('Firebase not configured')
+  }
+  await adminDb.collection('users').doc(userId).set({
+    googleTokens: tokens,
+    calendarSettings: {
+      autoSync: true,
+      syncDirection: 'two-way',
+      connectedAt: new Date(),
+    },
+  }, { merge: true })
+}
+
+export const getUserTokens = async (userId: string): Promise<{
+  refreshToken: string
+  accessToken: string
+  expiryDate: Date
+} | null> => {
+  if (!adminDb) {
+    return null
+  }
+  const doc = await adminDb.collection('users').doc(userId).get()
+  if (!doc.exists) return null
+
+  const data = doc.data()
+  return data?.googleTokens ? convertTimestamps(data.googleTokens) : null
+}
+
+export const deleteUserTokens = async (userId: string): Promise<void> => {
+  if (!adminDb) {
+    throw new Error('Firebase not configured')
+  }
+  await adminDb.collection('users').doc(userId).update({
+    googleTokens: null,
+    calendarSettings: null,
+  })
+}
+
 export const getOrCreateUser = async (userData: Partial<User>): Promise<User> => {
   if (!adminDb) {
     throw new Error('Firebase not configured')
