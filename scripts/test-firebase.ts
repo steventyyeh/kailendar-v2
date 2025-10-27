@@ -29,7 +29,7 @@ async function testFirebaseConnection() {
     // Try to list collections
     const collections = await adminDb.listCollections()
     console.log(`✅ Connected to Firestore`)
-    console.log(`📚 Found ${collections.length} collection(s):`, collections.map(c => c.id).join(', ') || 'none')
+    console.log(`📚 Found ${collections.length} collection(s):`, collections.map((c: any) => c.id).join(', ') || 'none')
 
     // Try to create a test document
     const testRef = adminDb.collection('_test').doc('connection-test')
