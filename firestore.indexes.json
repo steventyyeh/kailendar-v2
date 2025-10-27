@@ -1,7 +1,7 @@
 {
   "indexes": [
     {
-      "collectionGroup": "resources",
+      "collectionGroup": "goals",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -9,7 +9,7 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "addedAt",
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
       ]
@@ -33,7 +33,7 @@
       ]
     },
     {
-      "collectionGroup": "goals",
+      "collectionGroup": "resources",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -41,8 +41,40 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "deadline",
+          "fieldPath": "addedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "resources",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "goalId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "addedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "progressLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "goalId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
         }
       ]
     }
