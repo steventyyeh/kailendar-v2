@@ -39,23 +39,32 @@ export default function SettingsPage() {
     const fetchUser = async () => {
       try {
         setLoading(true)
+        setError(null) // Clear any previous errors
         // Use the real API endpoint
         const response = await fetch('/api/user/profile')
-        const result = await response.json()
 
-        if (result.success) {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const result = await response.json()
+        console.log('User profile response:', result)
+
+        if (result.success && result.data) {
           setData(result.data)
-          // Populate form with fetched data
-          setEmailNotifications(result.data.settings.emailNotifications)
-          setWeekStartsOn(result.data.settings.weekStartsOn)
-          setDefaultReminderMinutes(result.data.settings.defaultReminderMinutes)
-          setTheme(result.data.settings.theme || 'light')
+          // Populate form with fetched data, with defaults if settings don't exist
+          const settings = result.data.settings || {}
+          setEmailNotifications(settings.emailNotifications ?? true)
+          setWeekStartsOn(settings.weekStartsOn ?? 0)
+          setDefaultReminderMinutes(settings.defaultReminderMinutes ?? 15)
+          setTheme(settings.theme || 'light')
         } else {
+          console.error('API returned unsuccessful response:', result)
           setError(result.error?.message || 'Failed to load user data')
         }
       } catch (err) {
         console.error('Error fetching user:', err)
-        setError('Failed to load user data')
+        setError(`Failed to load user data: ${err instanceof Error ? err.message : 'Unknown error'}`)
       } finally {
         setLoading(false)
       }
@@ -63,7 +72,12 @@ export default function SettingsPage() {
 
     if (session) {
       fetchUser()
+    } else if (session === null) {
+      // Session loaded but user not authenticated
+      setLoading(false)
+      setError('You must be signed in to view this page')
     }
+    // If session is undefined, it's still loading, so keep loading state
   }, [session])
 
   const handleSaveChanges = async (e: React.FormEvent) => {
