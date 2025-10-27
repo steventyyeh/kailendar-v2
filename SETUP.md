@@ -77,6 +77,25 @@ NEXTAUTH_URL="http://localhost:3000"
      - `AUTH_SECRET` (use the same value from `.env.local`)
      - `NEXTAUTH_URL` (set to your production URL)
 
+## Firebase Firestore Indexes
+
+The application requires composite indexes for efficient queries. These are defined in `firestore.indexes.json`.
+
+**To deploy indexes to Firebase:**
+
+```bash
+# Install Firebase CLI if not already installed
+npm install -g firebase-tools
+
+# Login to Firebase
+firebase login
+
+# Deploy indexes
+firebase deploy --only firestore:indexes
+```
+
+Alternatively, when you encounter an index error in development, Firebase will provide a direct link to create the index in the console.
+
 ## Installation & Running Locally
 
 ```bash
