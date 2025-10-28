@@ -27,11 +27,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Store refresh token in Firestore for calendar API access
         if (account.refresh_token && token.email) {
           try {
-            await updateUserTokens(token.email as string, {
-              refreshToken: account.refresh_token,
-              accessToken: account.access_token || '',
-              expiryDate: account.expires_at ? new Date(account.expires_at * 1000) : new Date(),
-            })
+            await updateUserTokens(
+              token.email as string,
+              {
+                refreshToken: account.refresh_token,
+                accessToken: account.access_token || '',
+                expiryDate: account.expires_at ? new Date(account.expires_at * 1000) : new Date(),
+              },
+              {
+                email: token.email as string,
+                displayName: token.name as string | undefined,
+                photoURL: token.picture as string | undefined,
+              }
+            )
           } catch (error) {
             console.error('Failed to store tokens in Firestore:', error)
           }

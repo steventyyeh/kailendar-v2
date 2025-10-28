@@ -35,7 +35,7 @@ export const createUser = async (userData: Partial<User>): Promise<void> => {
     settings: {
       emailNotifications: true,
       weekStartsOn: 0,
-      defaultReminderMinutes: 15,
+      defaultReminderMinutes: 30,
     },
     createdAt: new Date(),
     lastLoginAt: new Date(),
@@ -71,19 +71,43 @@ export const updateUserTokens = async (
     refreshToken: string
     accessToken: string
     expiryDate: Date
+  },
+  userProfile?: {
+    email: string
+    displayName?: string
+    photoURL?: string
   }
 ): Promise<void> => {
   if (!adminDb) {
     throw new Error('Firebase not configured')
   }
-  await adminDb.collection('users').doc(userId).set({
-    googleTokens: tokens,
-    calendarSettings: {
-      autoSync: true,
-      syncDirection: 'two-way',
-      connectedAt: new Date(),
+
+  const userRef = adminDb.collection('users').doc(userId)
+  const userDoc = await userRef.get()
+
+  // If user doesn't exist, create the full profile first
+  if (!userDoc.exists && userProfile) {
+    await createUser({
+      uid: userId,
+      email: userProfile.email,
+      displayName: userProfile.displayName || '',
+      photoURL: userProfile.photoURL || '',
+    })
+  }
+
+  // Now update/merge tokens and calendar settings
+  await userRef.set(
+    {
+      googleTokens: tokens,
+      calendarSettings: {
+        autoSync: true,
+        syncDirection: 'two-way',
+        connectedAt: new Date(),
+      },
+      lastLoginAt: new Date(),
     },
-  }, { merge: true })
+    { merge: true }
+  )
 }
 
 export const getUserTokens = async (userId: string): Promise<{
