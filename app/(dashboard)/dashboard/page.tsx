@@ -54,9 +54,42 @@ export default function DashboardPage() {
     }
   }
 
-  const handleTaskToggle = (taskId: string, completed: boolean) => {
-    console.log(`Task ${taskId} ${completed ? 'completed' : 'uncompleted'}`)
-    // In production, this would call an API to update the task status
+  const handleTaskToggle = async (taskId: string, completed: boolean) => {
+    try {
+      console.log(`Task ${taskId} ${completed ? 'completed' : 'uncompleted'}`)
+
+      // Update task completion via API
+      const response = await fetch('/api/tasks/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ taskId, completed }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update task')
+      }
+
+      const result = await response.json()
+
+      if (result.success) {
+        // Update local state optimistically
+        setDashboardData(prev => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            todaysTasks: prev.todaysTasks.map(task =>
+              task.id === taskId ? { ...task, completed } : task
+            ),
+          }
+        })
+      }
+    } catch (error) {
+      console.error('Failed to toggle task:', error)
+      // Optionally show error toast to user
+      alert('Failed to update task. Please try again.')
+    }
   }
 
   if (loading) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { getOrCreateUser, getUserGoals } from '@/lib/firebase/db'
+import { getTodaysTasks as getFirestoreTodaysTasks } from '@/lib/firebase/tasks'
 import { ApiResponse, DashboardData, DailyTask, WeeklyStats } from '@/types'
 
 export async function GET(request: NextRequest) {
@@ -43,12 +44,39 @@ export async function GET(request: NextRequest) {
     const activeGoals = await getUserGoals(user.uid, 'active')
     console.log('[Dashboard] Found active goals:', activeGoals.length)
 
-    // Generate today's tasks from active goals
-    console.log('[Dashboard] Generating daily tasks')
-    const todaysTasks: DailyTask[] = activeGoals.flatMap(goal =>
+    // Get tasks from Firestore (actual tasks due today)
+    console.log('[Dashboard] Fetching today\'s tasks from Firestore')
+    const firestoreTasks = await getFirestoreTodaysTasks(user.uid)
+    console.log('[Dashboard] Found Firestore tasks:', firestoreTasks.length)
+
+    // Convert Firestore tasks to DailyTask format
+    const firestoreDailyTasks: DailyTask[] = await Promise.all(
+      firestoreTasks.map(async (task) => {
+        const goal = activeGoals.find(g => g.id === task.goalId)
+        return {
+          id: task.id || `task-${Date.now()}`,
+          goalId: task.goalId,
+          goalTitle: goal?.specificity || 'Unknown Goal',
+          goalColor: goal?.calendar?.color || '#3498DB',
+          title: task.title,
+          duration: 60, // Default duration
+          scheduledTime: task.dueDate ? new Date(task.dueDate) : undefined,
+          completed: task.completed,
+          calendarEventId: task.calendarEventId,
+        }
+      })
+    )
+
+    // Also generate recurring tasks from goal plans
+    console.log('[Dashboard] Generating recurring daily tasks')
+    const recurringTasks: DailyTask[] = activeGoals.flatMap(goal =>
       generateDailyTasksForGoal(goal)
     )
-    console.log('[Dashboard] Generated tasks:', todaysTasks.length)
+    console.log('[Dashboard] Generated recurring tasks:', recurringTasks.length)
+
+    // Combine both types of tasks
+    const todaysTasks = [...firestoreDailyTasks, ...recurringTasks]
+    console.log('[Dashboard] Total tasks:', todaysTasks.length)
 
     // Get upcoming milestones
     console.log('[Dashboard] Processing milestones')
