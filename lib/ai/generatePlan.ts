@@ -1,18 +1,30 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { CreateGoalRequest, GoalPlan, Milestone, Objective } from '@/types'
+import { Task } from '@/lib/firebase/tasks'
 
 /**
- * Generate a goal plan using Claude API
+ * Enhanced response interface that includes both plan and tasks
+ */
+interface ClaudeTaskGenerationResponse {
+  plan: GoalPlan
+  tasks: Omit<Task, 'id' | 'createdAt'>[]
+  resources: any[]
+}
+
+/**
+ * Generate a goal plan using Claude API with structured task generation
  * This can be called directly from server-side code without HTTP requests
  */
 export async function generatePlanWithClaude(
   request: CreateGoalRequest
-): Promise<{ plan: GoalPlan; resources: any[] }> {
+): Promise<ClaudeTaskGenerationResponse> {
   // Check if Anthropic API key is configured
   if (!process.env.ANTHROPIC_API_KEY) {
     console.warn('ANTHROPIC_API_KEY not configured, returning minimal plan')
     throw new Error('ANTHROPIC_API_KEY not configured')
   }
+
+  console.log('[LLM] Initializing Claude API for goal:', request.specificity)
 
   // Initialize Anthropic client
   const anthropic = new Anthropic({
@@ -31,32 +43,54 @@ export async function generatePlanWithClaude(
     constraints,
   } = request
 
+  const deadlineDate = new Date(deadline)
+  const now = new Date()
+  const totalDays = Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
   // Build context for Claude
   const userContext = `
 Goal: ${specificity}
 Category: ${category}
 Current Experience Level: ${currentState}
 Target State: ${targetState}
-Deadline: ${new Date(deadline).toLocaleDateString()}
+Start Date: ${now.toLocaleDateString()}
+Deadline: ${deadlineDate.toLocaleDateString()}
+Duration: ${totalDays} days
 Learning Preferences: ${learningStyles?.join(', ') || 'Not specified'}
 Budget: ${budget || 'Not specified'}
 Equipment Available: ${equipment || 'Not specified'}
 Constraints: ${constraints || 'None specified'}
   `.trim()
 
-  const systemPrompt = `You are an expert productivity coach and goal planning assistant. Your role is to help users achieve their goals by creating detailed, actionable plans.
+  const systemPrompt = `You are an expert life planning assistant that helps users achieve their goals through actionable daily steps and realistic calendar scheduling.
 
-Given a user's goal and context, generate a structured plan with:
-1. A motivational summary (2-3 sentences)
-2. 3-5 milestones that break down the goal into major phases
-3. For each milestone: specific objectives with tasks
-4. Realistic timelines based on the user's deadline
-5. 2-3 actionable insights/recommendations
-6. 3-5 recommended resources (books, courses, tools, websites)
+Your task is to generate a comprehensive, structured plan that includes:
+1. A motivational plan summary (2-3 sentences)
+2. A list of specific, scheduled tasks distributed across the goal duration
+3. 3-5 milestones that break down the goal into major phases
+4. 2-3 actionable insights
+5. 3-5 recommended resources
 
-Respond ONLY with valid JSON in this exact format:
+CRITICAL: Generate realistic calendar tasks with specific dates and times. Each task should:
+- Have a clear title and description
+- Include realistic start and end times based on the goal's timeline
+- Be properly prioritized (high/medium/low)
+- Be scheduled throughout the goal duration (not all on the same day)
+- Take into account the user's experience level and constraints
+
+Output ONLY valid JSON in this EXACT format:
 {
-  "summary": "Motivational text here",
+  "planSummary": "A motivational 2-3 sentence summary of the plan",
+  "tasks": [
+    {
+      "title": "Task title",
+      "description": "Detailed description of what to do",
+      "startDateTime": "ISO8601 datetime string",
+      "endDateTime": "ISO8601 datetime string",
+      "priority": "high|medium|low",
+      "milestoneId": "milestone-1"
+    }
+  ],
   "milestones": [
     {
       "title": "Milestone title",
@@ -82,22 +116,50 @@ Respond ONLY with valid JSON in this exact format:
       "title": "Resource name",
       "type": "book|course|tool|website|video",
       "description": "Why this resource is helpful",
-      "url": "https://example.com (if available, otherwise null)",
+      "url": "https://example.com or null",
       "cost": "Free|$X|Subscription"
     }
   ]
 }
 
-Make the plan realistic, specific, and tailored to the user's experience level and constraints. Include only high-quality, well-known resources that are actually helpful for this goal.`
+EXAMPLE for "Run a half marathon in 3 months":
+{
+  "planSummary": "A 12-week progressive running plan that builds your stamina and speed through consistent training, cross-training, and rest days. You'll gradually increase your mileage from 3 miles to 13.1 miles.",
+  "tasks": [
+    {
+      "title": "Week 1: Easy run - 3 miles",
+      "description": "Start with a comfortable pace. Focus on form and breathing. Walk if needed.",
+      "startDateTime": "2025-10-28T07:00:00Z",
+      "endDateTime": "2025-10-28T07:45:00Z",
+      "priority": "high",
+      "milestoneId": "milestone-1"
+    },
+    {
+      "title": "Week 1: Cross training - Cycling",
+      "description": "30 minutes of low-impact cardio to build aerobic base without stressing joints",
+      "startDateTime": "2025-10-29T18:00:00Z",
+      "endDateTime": "2025-10-29T18:30:00Z",
+      "priority": "medium",
+      "milestoneId": "milestone-1"
+    }
+  ],
+  "milestones": [...],
+  "insights": [...],
+  "resources": [...]
+}
+
+Make the plan realistic, specific, and tailored to the user's experience level and constraints.`
+
+  console.log('[LLM] Sending request to Claude API...')
 
   // Call Claude API
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-5-20250929',
-    max_tokens: 4096,
+    max_tokens: 8192,
     messages: [
       {
         role: 'user',
-        content: `${userContext}\n\nPlease generate a comprehensive goal plan.`,
+        content: `${userContext}\n\nPlease generate a comprehensive goal plan with scheduled tasks.`,
       },
     ],
     system: systemPrompt,
@@ -107,25 +169,101 @@ Make the plan realistic, specific, and tailored to the user's experience level a
   const responseText =
     message.content[0].type === 'text' ? message.content[0].text : ''
 
+  console.log('[LLM] Raw response received, length:', responseText.length)
+
   // Try to extract JSON from the response
   let planData
   try {
     // Sometimes Claude wraps JSON in markdown code blocks
-    const jsonMatch = responseText.match(/```json\n?([\s\S]*?)\n?```/) || responseText.match(/\{[\s\S]*\}/)
-    const jsonText = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : responseText
+    let jsonText = responseText.trim()
+
+    // Remove markdown code blocks if present
+    const jsonMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+    if (jsonMatch) {
+      jsonText = jsonMatch[1].trim()
+    }
+
+    // Find JSON object if text contains extra content
+    const objectMatch = jsonText.match(/\{[\s\S]*\}/)
+    if (objectMatch) {
+      jsonText = objectMatch[0]
+    }
+
+    console.log('[LLM] Attempting to parse JSON, length:', jsonText.length)
     planData = JSON.parse(jsonText)
+    console.log('[LLM] Successfully parsed JSON response')
   } catch (parseError) {
-    console.error('Failed to parse Claude response:', responseText)
-    throw new Error('Failed to parse AI response')
+    console.error('[LLM] Failed to parse Claude response:', parseError)
+    console.error('[LLM] Response text preview:', responseText.substring(0, 500))
+    throw new Error('Failed to parse AI response: ' + (parseError as Error).message)
   }
+
+  // Validate required fields
+  if (!planData.planSummary || !planData.tasks || !planData.milestones) {
+    console.error('[LLM] Missing required fields in response:', {
+      hasSummary: !!planData.planSummary,
+      hasTasks: !!planData.tasks,
+      hasMilestones: !!planData.milestones,
+    })
+    throw new Error('AI response missing required fields (planSummary, tasks, or milestones)')
+  }
+
+  console.log('[LLM] Parsed plan data:', {
+    summaryLength: planData.planSummary?.length,
+    tasksCount: planData.tasks?.length,
+    milestonesCount: planData.milestones?.length,
+    resourcesCount: planData.resources?.length,
+  })
 
   // Transform the AI response into our GoalPlan format
   const goalPlan: GoalPlan = transformAIPlanToGoalPlan(planData, new Date(deadline))
 
+  // Transform tasks from AI response to Firestore task format
+  const tasks = transformAITasks(planData.tasks || [], request.specificity)
+
   // Transform resources from AI response
   const resources = transformAIResources(planData.resources || [])
 
-  return { plan: goalPlan, resources }
+  console.log('[LLM] Transformation complete:', {
+    planGenerated: true,
+    tasksGenerated: tasks.length,
+    resourcesGenerated: resources.length,
+  })
+
+  return { plan: goalPlan, tasks, resources }
+}
+
+/**
+ * Transform AI-generated tasks into Firestore task format
+ */
+function transformAITasks(aiTasks: any[], goalTitle: string): Omit<Task, 'id' | 'createdAt'>[] {
+  console.log('[LLM] Transforming', aiTasks.length, 'AI tasks to Firestore format')
+
+  return aiTasks.map((aiTask: any, index: number) => {
+    // Parse dates from AI response
+    let dueDate: string
+    try {
+      // The AI returns startDateTime and endDateTime
+      // We'll use startDateTime as the dueDate for the task
+      const startDate = new Date(aiTask.startDateTime)
+      dueDate = startDate.toISOString()
+    } catch (error) {
+      console.warn(`[LLM] Invalid date format for task ${index}, using default`)
+      // Default to current time + index hours to spread them out
+      dueDate = new Date(Date.now() + index * 60 * 60 * 1000).toISOString()
+    }
+
+    const task: Omit<Task, 'id' | 'createdAt'> = {
+      goalId: '', // Will be set by the caller
+      title: aiTask.title || `Task ${index + 1}`,
+      description: aiTask.description || '',
+      dueDate,
+      completed: false,
+      milestoneId: aiTask.milestoneId || undefined,
+    }
+
+    return task
+  })
 }
 
 /**
@@ -172,7 +310,7 @@ function transformAIPlanToGoalPlan(aiPlan: any, deadline: Date): GoalPlan {
     milestones,
     objectives: allObjectives,
     taskTemplate: {
-      summary: aiPlan.summary || 'Your personalized goal plan is ready!',
+      summary: aiPlan.planSummary || aiPlan.summary || 'Your personalized goal plan is ready!',
       insights: aiPlan.insights || [],
       recommendedSchedule: {
         frequency: 'weekly',
