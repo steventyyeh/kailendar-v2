@@ -106,8 +106,15 @@ export interface Task {
 }
 
 export interface TaskTemplate {
-  recurringTasks: RecurringTask[]
-  oneTimeTasks: OneTimeTask[]
+  summary?: string
+  insights?: string[]
+  recommendedSchedule?: {
+    frequency: string
+    duration: number
+    suggestedDays: string[]
+  }
+  recurringTasks?: RecurringTask[]
+  oneTimeTasks?: OneTimeTask[]
 }
 
 export interface RecurringTask {
@@ -236,4 +243,5 @@ export interface ApiResponse<T = any> {
     timestamp: string
     requestId: string
   }
+  warning?: string
 }

@@ -113,6 +113,24 @@ export default function GoalCard({ goal }: GoalCardProps) {
             })()}
           </div>
         )}
+
+        {/* AI Insights */}
+        {goal.plan?.taskTemplate?.insights && goal.plan.taskTemplate.insights.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">💡</span>
+              <p className="text-sm font-medium text-gray-700">AI Insights</p>
+            </div>
+            <div className="space-y-2">
+              {goal.plan.taskTemplate.insights.slice(0, 2).map((insight, index) => (
+                <div key={index} className="flex items-start gap-2">
+                  <span className="text-blue-500 mt-0.5">•</span>
+                  <p className="text-sm text-gray-600 flex-1">{insight}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </Link>
   )

@@ -135,8 +135,36 @@ async function generatePlanInBackground(
   request: CreateGoalRequest
 ) {
   try {
-    // Generate plan using mock Claude API
-    const { plan, resources } = await generateGoalPlan(request)
+    // Call AI endpoint to generate plan
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    const response = await fetch(`${baseUrl}/api/ai/goal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    })
+
+    if (!response.ok) {
+      throw new Error(`AI API returned ${response.status}`)
+    }
+
+    const result = await response.json()
+
+    if (!result.success || !result.data) {
+      throw new Error('AI API returned unsuccessful response')
+    }
+
+    const plan = result.data
+
+    // For resources, try to use mock function if available, or empty array
+    let resources: any[] = []
+    try {
+      const mockResult = await generateGoalPlan(request)
+      resources = mockResult.resources || []
+    } catch {
+      resources = []
+    }
 
     // Update goal with generated plan
     const { updateGoal } = await import('@/lib/firebase/db')
@@ -146,15 +174,28 @@ async function generatePlanInBackground(
       resources,
     })
 
-    console.log(`Plan generated for goal ${goalId}`)
+    console.log(`AI plan generated for goal ${goalId}`)
   } catch (error) {
     console.error(`Failed to generate plan for goal ${goalId}:`, error)
 
-    // Update goal status to error
-    const { updateGoal } = await import('@/lib/firebase/db')
-    await updateGoal(goalId, {
-      status: 'deleted', // Mark as error/deleted
-    })
+    // Fallback to mock plan if AI fails
+    try {
+      const { plan, resources } = await generateGoalPlan(request)
+      const { updateGoal } = await import('@/lib/firebase/db')
+      await updateGoal(goalId, {
+        status: 'ready',
+        plan,
+        resources,
+      })
+      console.log(`Fallback mock plan generated for goal ${goalId}`)
+    } catch (fallbackError) {
+      console.error(`Fallback also failed for goal ${goalId}:`, fallbackError)
+      // Update goal status to error
+      const { updateGoal } = await import('@/lib/firebase/db')
+      await updateGoal(goalId, {
+        status: 'deleted', // Mark as error/deleted
+      })
+    }
   }
 }
 
