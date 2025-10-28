@@ -158,18 +158,18 @@ export default function SettingsPage() {
           {data.photoURL ? (
             <img
               src={data.photoURL}
-              alt={data.displayName}
+              alt={data.displayName || data.email}
               className="w-20 h-20 rounded-full"
             />
           ) : (
             <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center">
               <span className="text-3xl text-blue-600">
-                {data.displayName.charAt(0).toUpperCase()}
+                {(data.displayName || data.email || '?').charAt(0).toUpperCase()}
               </span>
             </div>
           )}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">{data.displayName}</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{data.displayName || 'User'}</h3>
             <p className="text-sm text-gray-600">{data.email}</p>
             <p className="text-xs text-gray-500 mt-1">
               Member since {new Date(data.createdAt).toLocaleDateString()}
