@@ -134,28 +134,9 @@ async function generatePlanInBackground(
   request: CreateGoalRequest
 ) {
   try {
-    // Call AI endpoint to generate plan
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
-    const response = await fetch(`${baseUrl}/api/ai/goal`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    })
-
-    if (!response.ok) {
-      throw new Error(`AI API returned ${response.status}`)
-    }
-
-    const result = await response.json()
-
-    if (!result.success || !result.data) {
-      throw new Error('AI API returned unsuccessful response')
-    }
-
-    // Extract plan and resources from AI response
-    const { plan, resources } = result.data
+    // Call AI generation function directly (no HTTP request needed)
+    const { generatePlanWithClaude } = await import('@/lib/ai/generatePlan')
+    const { plan, resources } = await generatePlanWithClaude(request)
 
     // Update goal with generated plan and resources
     const { updateGoal } = await import('@/lib/firebase/db')
