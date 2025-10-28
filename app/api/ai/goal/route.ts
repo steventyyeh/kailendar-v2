@@ -72,6 +72,7 @@ Given a user's goal and context, generate a structured plan with:
 3. For each milestone: specific objectives with tasks
 4. Realistic timelines based on the user's deadline
 5. 2-3 actionable insights/recommendations
+6. 3-5 recommended resources (books, courses, tools, websites)
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -95,10 +96,19 @@ Respond ONLY with valid JSON in this exact format:
   "insights": [
     "Actionable insight 1",
     "Actionable insight 2"
+  ],
+  "resources": [
+    {
+      "title": "Resource name",
+      "type": "book|course|tool|website|video",
+      "description": "Why this resource is helpful",
+      "url": "https://example.com (if available, otherwise null)",
+      "cost": "Free|$X|Subscription"
+    }
   ]
 }
 
-Make the plan realistic, specific, and tailored to the user's experience level and constraints.`
+Make the plan realistic, specific, and tailored to the user's experience level and constraints. Include only high-quality, well-known resources that are actually helpful for this goal.`
 
     // Call Claude API
     const message = await anthropic.messages.create({
@@ -132,21 +142,30 @@ Make the plan realistic, specific, and tailored to the user's experience level a
     // Transform the AI response into our GoalPlan format
     const goalPlan: GoalPlan = transformAIPlanToGoalPlan(planData, deadline)
 
+    // Transform resources from AI response
+    const resources = transformAIResources(planData.resources || [])
+
     return NextResponse.json<ApiResponse>({
       success: true,
-      data: goalPlan,
+      data: {
+        plan: goalPlan,
+        resources,
+      },
     })
   } catch (error) {
     console.error('Error generating AI goal plan:', error)
 
-    // Fallback to mock plan on error
+    // Fallback to minimal plan on error
     const body = await request.json().catch(() => ({}))
     return NextResponse.json<ApiResponse>({
       success: true,
-      data: getMockPlan(
-        body.specificity || 'Your Goal',
-        body.deadline || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-      ),
+      data: {
+        plan: getMockPlan(
+          body.specificity || 'Your Goal',
+          body.deadline || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+        ),
+        resources: [],
+      },
       warning: 'AI generation unavailable, using fallback plan',
     })
   }
@@ -205,6 +224,25 @@ function transformAIPlanToGoalPlan(aiPlan: any, deadline: Date): GoalPlan {
       },
     },
   }
+}
+
+/**
+ * Transform AI-generated resources into Resource format
+ */
+function transformAIResources(aiResources: any[]): any[] {
+  return aiResources.map((resource: any, index: number) => ({
+    id: `ai-resource-${index}`,
+    title: resource.title || 'Untitled Resource',
+    type: resource.type || 'website',
+    description: resource.description || '',
+    url: resource.url || null,
+    metadata: {
+      cost: resource.cost || 'Unknown',
+      difficulty: 'beginner',
+      format: resource.type || 'online',
+    },
+    addedAt: new Date(),
+  }))
 }
 
 /**

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { createGoal, getUser, getUserGoals } from '@/lib/firebase/db'
-import { generateGoalPlan } from '@/lib/claude/mock'
 import { CreateGoalRequest, ApiResponse, CreateGoalResponse } from '@/types'
 
 export async function POST(request: NextRequest) {
@@ -155,26 +154,18 @@ async function generatePlanInBackground(
       throw new Error('AI API returned unsuccessful response')
     }
 
-    const plan = result.data
+    // Extract plan and resources from AI response
+    const { plan, resources } = result.data
 
-    // For resources, try to use mock function if available, or empty array
-    let resources: any[] = []
-    try {
-      const mockResult = await generateGoalPlan(request)
-      resources = mockResult.resources || []
-    } catch {
-      resources = []
-    }
-
-    // Update goal with generated plan
+    // Update goal with generated plan and resources
     const { updateGoal } = await import('@/lib/firebase/db')
     await updateGoal(goalId, {
       status: 'ready',
       plan,
-      resources,
+      resources: resources || [],
     })
 
-    console.log(`AI plan generated for goal ${goalId}`)
+    console.log(`AI plan generated for goal ${goalId} with ${resources?.length || 0} resources`)
 
     // Automatically generate tasks and sync to Google Calendar
     try {
@@ -269,16 +260,84 @@ async function generatePlanInBackground(
   } catch (error) {
     console.error(`Failed to generate plan for goal ${goalId}:`, error)
 
-    // Fallback to mock plan if AI fails
+    // Create minimal fallback plan
     try {
-      const { plan, resources } = await generateGoalPlan(request)
       const { updateGoal } = await import('@/lib/firebase/db')
+      const deadline = new Date(request.deadline)
+      const now = new Date()
+
+      // Create a simple 2-milestone plan
+      const milestones = [
+          {
+            id: 'milestone-1',
+            title: 'Get Started',
+            description: `Begin working on: ${request.specificity}`,
+            targetDate: new Date(now.getTime() + (deadline.getTime() - now.getTime()) / 2),
+            status: 'pending' as const,
+            objectives: [
+              {
+                id: 'obj-1',
+                milestoneId: 'milestone-1',
+                description: 'Research and plan your approach',
+                estimatedHours: 5,
+                status: 'pending' as const,
+                tasks: [
+                  { id: 'task-1-1', description: 'Set up your workspace and gather materials', status: 'pending' as const },
+                  { id: 'task-1-2', description: 'Create a detailed action plan', status: 'pending' as const },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'milestone-2',
+            title: 'Make Progress',
+            description: 'Work consistently toward your goal',
+            targetDate: deadline,
+            status: 'pending' as const,
+            objectives: [
+              {
+                id: 'obj-2',
+                milestoneId: 'milestone-2',
+                description: 'Execute your plan and track progress',
+                estimatedHours: 20,
+                status: 'pending' as const,
+                tasks: [
+                  { id: 'task-2-1', description: 'Practice or work on your goal daily', status: 'pending' as const },
+                  { id: 'task-2-2', description: 'Review and adjust your approach weekly', status: 'pending' as const },
+                ],
+              },
+            ],
+          },
+        ]
+
+      const allObjectives = milestones.flatMap(m => m.objectives)
+
+      const minimalPlan = {
+        generatedAt: now,
+        llmModel: 'fallback-v1',
+        milestones,
+        objectives: allObjectives,
+        taskTemplate: {
+          summary: `Starting your journey with ${request.specificity}. This basic plan will help you get organized.`,
+          insights: [
+            'Break down your goal into smaller daily actions',
+            'Track your progress consistently and adjust as needed',
+          ],
+          recommendedSchedule: {
+            frequency: 'daily',
+            duration: 30,
+            suggestedDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+          },
+        },
+      }
+
       await updateGoal(goalId, {
         status: 'ready',
-        plan,
-        resources,
+        plan: minimalPlan,
+        resources: [],
       })
-      console.log(`Fallback mock plan generated for goal ${goalId}`)
+
+      console.log(`Minimal fallback plan generated for goal ${goalId}`)
     } catch (fallbackError) {
       console.error(`Fallback also failed for goal ${goalId}:`, fallbackError)
       // Update goal status to error
