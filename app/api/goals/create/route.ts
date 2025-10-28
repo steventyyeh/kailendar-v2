@@ -175,6 +175,97 @@ async function generatePlanInBackground(
     })
 
     console.log(`AI plan generated for goal ${goalId}`)
+
+    // Automatically generate tasks and sync to Google Calendar
+    try {
+      const { createTasksBatch } = await import('@/lib/firebase/tasks')
+      const { syncTasksToCalendar } = await import('@/lib/calendar-tasks')
+      const { getGoal } = await import('@/lib/firebase/db')
+
+      // Get the updated goal with plan
+      const goal = await getGoal(goalId)
+
+      if (!goal || !goal.plan) {
+        console.error(`Goal ${goalId} not found or has no plan after generation`)
+        return
+      }
+
+      // Extract tasks from the goal's plan
+      const tasksToCreate: any[] = []
+
+      // Iterate through milestones and objectives
+      for (const milestone of goal.plan.milestones || []) {
+        for (const objective of milestone.objectives || []) {
+          // Each objective's task becomes a Firestore task
+          for (const task of objective.tasks || []) {
+            // Calculate due date based on milestone target date
+            const dueDate = milestone.targetDate
+              ? new Date(milestone.targetDate)
+              : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Default 7 days from now
+
+            tasksToCreate.push({
+              goalId: goal.id || goalId,
+              title: task.description,
+              description: `Part of: ${objective.description}`,
+              dueDate: dueDate.toISOString(),
+              completed: task.status === 'completed',
+              milestoneId: milestone.id,
+            })
+          }
+        }
+      }
+
+      // Also include any one-time tasks from task template
+      if (goal.plan.taskTemplate?.oneTimeTasks) {
+        for (const oneTimeTask of goal.plan.taskTemplate.oneTimeTasks) {
+          const dueDate = oneTimeTask.targetDate
+            ? new Date(oneTimeTask.targetDate)
+            : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // Default 3 days from now
+
+          tasksToCreate.push({
+            goalId: goal.id || goalId,
+            title: oneTimeTask.title,
+            description: oneTimeTask.description,
+            dueDate: dueDate.toISOString(),
+            completed: false,
+          })
+        }
+      }
+
+      if (tasksToCreate.length === 0) {
+        console.log(`No tasks to create for goal ${goalId}`)
+        return
+      }
+
+      console.log(`Creating ${tasksToCreate.length} tasks for goal ${goalId}`)
+
+      // Create tasks in Firestore
+      const createdTasks = await createTasksBatch(userId, tasksToCreate)
+
+      console.log(`Created ${createdTasks.length} tasks in Firestore for goal ${goalId}`)
+
+      // Sync to Google Calendar
+      try {
+        const goalMap = new Map([[goal.id || goalId, goal]])
+        const taskEventMap = await syncTasksToCalendar(userId, createdTasks, goalMap)
+
+        console.log(`Synced ${taskEventMap.size} tasks to Google Calendar for goal ${goalId}`)
+
+        // Update tasks with calendar event IDs
+        const { updateTask } = await import('@/lib/firebase/tasks')
+        for (const [taskId, eventId] of taskEventMap.entries()) {
+          await updateTask(userId, taskId, { calendarEventId: eventId })
+        }
+
+        console.log(`Updated task records with calendar event IDs for goal ${goalId}`)
+      } catch (calendarError) {
+        console.error('Failed to sync tasks to Google Calendar:', calendarError)
+        // Continue even if calendar sync fails - tasks are still created in Firestore
+      }
+    } catch (taskError) {
+      console.error(`Failed to generate tasks for goal ${goalId}:`, taskError)
+      // Continue - goal plan is still created even if task generation fails
+    }
   } catch (error) {
     console.error(`Failed to generate plan for goal ${goalId}:`, error)
 
