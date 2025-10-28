@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     // Sync to Google Calendar if requested
     if (syncToCalendar && task.id) {
       try {
-        const goal = await getGoal(userId, goalId)
+        const goal = await getGoal(goalId)
         const eventId = await syncTaskToCalendar(userId, task, goal || undefined)
 
         // Update task with calendar event ID
@@ -212,7 +212,7 @@ export async function PATCH(request: NextRequest) {
     // Sync to Google Calendar if requested
     if (syncToCalendar && task.goalId) {
       try {
-        const goal = await getGoal(userId, task.goalId)
+        const goal = await getGoal(task.goalId)
         await syncTaskToCalendar(userId, task, goal || undefined)
       } catch (calendarError) {
         console.error('Failed to sync to calendar:', calendarError)

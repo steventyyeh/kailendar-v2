@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the goal
-    const goal = await getGoal(userId, goalId)
+    const goal = await getGoal(goalId)
 
     if (!goal) {
       return NextResponse.json<ApiResponse>(

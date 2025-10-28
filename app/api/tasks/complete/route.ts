@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         if (completed) {
           await markTaskCompletedInCalendar(userId, updatedTask)
         } else {
-          const goal = await getGoal(userId, updatedTask.goalId)
+          const goal = await getGoal(updatedTask.goalId)
           await markTaskIncompleteInCalendar(userId, updatedTask, goal || undefined)
         }
       } catch (calendarError) {

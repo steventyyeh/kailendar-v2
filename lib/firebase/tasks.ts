@@ -200,7 +200,7 @@ export const deleteTasksByGoal = async (userId: string, goalId: string): Promise
     .get()
 
   const batch = adminDb.batch()
-  tasksSnapshot.docs.forEach((doc) => {
+  tasksSnapshot.docs.forEach((doc: any) => {
     batch.delete(doc.ref)
   })
 
