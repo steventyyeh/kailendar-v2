@@ -23,13 +23,26 @@ export const syncTaskToCalendar = async (
 
   const eventTitle = task.completed ? `✅ ${task.title}` : task.title
 
-  const eventDescription = [
+  // Build event description with resources if available
+  const descriptionParts: string[] = [
     task.description || '',
-    '',
-    `From Kailendar Goal: ${goal?.specificity || 'Your Goal'}`,
-    '',
-    'Managed by Kailendar - https://kailendar.app',
-  ].filter(Boolean).join('\n')
+  ]
+
+  // Add resources section if task has resources
+  if (task.resources && task.resources.length > 0) {
+    descriptionParts.push('')
+    descriptionParts.push('📚 Resources:')
+    task.resources.forEach(resource => {
+      descriptionParts.push(`• ${resource.title}: ${resource.url}`)
+    })
+  }
+
+  descriptionParts.push('')
+  descriptionParts.push(`From Kailendar Goal: ${goal?.specificity || 'Your Goal'}`)
+  descriptionParts.push('')
+  descriptionParts.push('Managed by Kailendar - https://kailendar.app')
+
+  const eventDescription = descriptionParts.filter(Boolean).join('\n')
 
   const eventData = {
     summary: eventTitle,

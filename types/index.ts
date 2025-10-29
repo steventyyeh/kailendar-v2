@@ -27,6 +27,10 @@ export interface UserSettings {
   emailNotifications: boolean
   weekStartsOn: number // 0-6 (Sunday-Saturday)
   defaultReminderMinutes: number
+  availableHours?: {
+    start: string // HH:MM format, e.g., "09:00"
+    end: string // HH:MM format, e.g., "17:00"
+  }
 }
 
 // Goal Types

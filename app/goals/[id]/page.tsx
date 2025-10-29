@@ -5,6 +5,18 @@ import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Goal } from '@/types'
 
+interface Task {
+  id: string
+  goalId: string
+  title: string
+  description?: string
+  dueDate?: string
+  completed: boolean
+  calendarEventId?: string
+  milestoneId?: string
+  createdAt: string
+}
+
 export default function GoalDetailPage() {
   const router = useRouter()
   const params = useParams()
@@ -12,7 +24,9 @@ export default function GoalDetailPage() {
   const goalId = params.id as string
 
   const [goal, setGoal] = useState<Goal | null>(null)
+  const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingTasks, setLoadingTasks] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Redirect if not authenticated
@@ -45,6 +59,32 @@ export default function GoalDetailPage() {
     }
 
     fetchGoal()
+  }, [goalId, status])
+
+  // Fetch real tasks for this goal
+  useEffect(() => {
+    if (!goalId || status !== 'authenticated') return
+
+    const fetchTasks = async () => {
+      try {
+        const response = await fetch(`/api/tasks?goalId=${goalId}`)
+        const result = await response.json()
+
+        if (result.success && result.data?.tasks) {
+          setTasks(result.data.tasks)
+        } else {
+          console.warn('No tasks found or failed to load tasks')
+          setTasks([])
+        }
+      } catch (err) {
+        console.error('Error fetching tasks:', err)
+        setTasks([])
+      } finally {
+        setLoadingTasks(false)
+      }
+    }
+
+    fetchTasks()
   }, [goalId, status])
 
   const handleTaskToggle = async (taskId: string, completed: boolean) => {
@@ -165,10 +205,189 @@ export default function GoalDetailPage() {
           </div>
         </div>
 
+        {/* Plan Summary */}
+        {goal.plan?.taskTemplate?.summary && (
+          <div className="mb-8">
+            <div className="bg-white rounded-xl shadow-lg p-8">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-3xl">📋</span>
+                <h2 className="text-2xl font-bold text-gray-900">AI-Generated Plan Summary</h2>
+              </div>
+              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                {goal.plan.taskTemplate.summary}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* AI Insights */}
+        {goal.plan?.taskTemplate?.insights && goal.plan.taskTemplate.insights.length > 0 && (
+          <div className="mb-8">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg p-8 border border-blue-100">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-3xl">💡</span>
+                <h2 className="text-2xl font-bold text-gray-900">AI Insights & Recommendations</h2>
+              </div>
+              <ul className="space-y-3">
+                {goal.plan.taskTemplate.insights.map((insight, index) => (
+                  <li key={index} className="flex items-start gap-3">
+                    <span className="text-blue-600 font-bold mt-1">•</span>
+                    <p className="text-gray-700 leading-relaxed flex-1">{insight}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* LLM-Generated Tasks */}
+        <div className="mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">📅</span>
+                <h2 className="text-2xl font-bold text-gray-900">Scheduled Tasks</h2>
+              </div>
+              {!loadingTasks && (
+                <span className="text-sm text-gray-500">
+                  {tasks.filter(t => t.completed).length} / {tasks.length} completed
+                </span>
+              )}
+            </div>
+
+            {loadingTasks ? (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="mt-2 text-gray-600">Loading tasks...</p>
+              </div>
+            ) : tasks.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                <span className="text-6xl mb-4 block">📝</span>
+                <p className="text-gray-600 text-lg mb-2">No tasks generated yet</p>
+                <p className="text-gray-500 text-sm">
+                  Tasks will appear here once the AI generates your personalized schedule
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {tasks.map((task) => {
+                  const dueDate = task.dueDate ? new Date(task.dueDate) : null
+                  const isPast = dueDate && dueDate < new Date()
+                  const isToday = dueDate &&
+                    dueDate.toDateString() === new Date().toDateString()
+
+                  return (
+                    <div
+                      key={task.id}
+                      className={`p-5 border-2 rounded-lg transition-all ${
+                        task.completed
+                          ? 'bg-green-50 border-green-200'
+                          : isToday
+                          ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200'
+                          : isPast
+                          ? 'bg-red-50 border-red-200'
+                          : 'bg-white border-gray-200 hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="flex items-start gap-4">
+                        <input
+                          type="checkbox"
+                          checked={task.completed}
+                          onChange={(e) => handleTaskToggle(task.id, e.target.checked)}
+                          className="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-2">
+                            <h3
+                              className={`font-semibold text-lg ${
+                                task.completed
+                                  ? 'line-through text-gray-500'
+                                  : 'text-gray-900'
+                              }`}
+                            >
+                              {task.title}
+                            </h3>
+                            {isToday && !task.completed && (
+                              <span className="px-3 py-1 bg-blue-500 text-white text-xs font-bold rounded-full">
+                                TODAY
+                              </span>
+                            )}
+                            {isPast && !task.completed && (
+                              <span className="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
+                                OVERDUE
+                              </span>
+                            )}
+                            {task.completed && (
+                              <span className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
+                                ✓ DONE
+                              </span>
+                            )}
+                          </div>
+                          {task.description && (
+                            <p
+                              className={`text-sm mb-3 ${
+                                task.completed ? 'text-gray-500' : 'text-gray-700'
+                              }`}
+                            >
+                              {task.description}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap items-center gap-4 text-sm">
+                            {dueDate && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-500">📅</span>
+                                <span
+                                  className={
+                                    task.completed
+                                      ? 'text-gray-500'
+                                      : isPast
+                                      ? 'text-red-600 font-semibold'
+                                      : isToday
+                                      ? 'text-blue-600 font-semibold'
+                                      : 'text-gray-700'
+                                  }
+                                >
+                                  {dueDate.toLocaleDateString('en-US', {
+                                    weekday: 'short',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                  })}
+                                </span>
+                                <span className="text-gray-400">•</span>
+                                <span
+                                  className={
+                                    task.completed ? 'text-gray-500' : 'text-gray-700'
+                                  }
+                                >
+                                  {dueDate.toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                            {task.calendarEventId && (
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <span>📆</span>
+                                <span>Synced to Calendar</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Milestones */}
         {goal.plan?.milestones && goal.plan.milestones.length > 0 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Milestones</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Plan Structure & Milestones</h2>
             {goal.plan.milestones.map((milestone, index) => (
               <div
                 key={milestone.id}

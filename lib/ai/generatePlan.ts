@@ -16,7 +16,8 @@ interface ClaudeTaskGenerationResponse {
  * This can be called directly from server-side code without HTTP requests
  */
 export async function generatePlanWithClaude(
-  request: CreateGoalRequest
+  request: CreateGoalRequest,
+  userSettings?: { availableHours?: { start: string; end: string } }
 ): Promise<ClaudeTaskGenerationResponse> {
   // Check if Anthropic API key is configured
   console.log('[LLM] Checking for ANTHROPIC_API_KEY...')
@@ -53,6 +54,10 @@ export async function generatePlanWithClaude(
   const totalDays = Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 
   // Build context for Claude
+  const availabilityText = userSettings?.availableHours
+    ? `User is only available between ${userSettings.availableHours.start} and ${userSettings.availableHours.end} each day.`
+    : 'No specific time constraints - can schedule throughout the day.'
+
   const userContext = `
 Goal: ${specificity}
 Category: ${category}
@@ -65,6 +70,7 @@ Learning Preferences: ${learningStyles?.join(', ') || 'Not specified'}
 Budget: ${budget || 'Not specified'}
 Equipment Available: ${equipment || 'Not specified'}
 Constraints: ${constraints || 'None specified'}
+Availability: ${availabilityText}
   `.trim()
 
   const systemPrompt = `You are an expert life planning assistant that helps users achieve their goals through actionable daily steps and realistic calendar scheduling.
@@ -82,6 +88,8 @@ CRITICAL: Generate realistic calendar tasks with specific dates and times. Each 
 - Be properly prioritized (high/medium/low)
 - Be scheduled throughout the goal duration (not all on the same day)
 - Take into account the user's experience level and constraints
+- Optionally include relevant resources (videos, articles, tools) that will help with that specific task
+- IMPORTANT: Schedule all tasks ONLY within the user's available hours if specified in the context. For example, if user is available 18:00-22:00, all task times must fall within that window.
 
 Output ONLY valid JSON in this EXACT format:
 {
@@ -137,7 +145,10 @@ EXAMPLE for "Run a half marathon in 3 months":
       "startDateTime": "2025-10-28T07:00:00Z",
       "endDateTime": "2025-10-28T07:45:00Z",
       "priority": "high",
-      "milestoneId": "milestone-1"
+      "milestoneId": "milestone-1",
+      "resources": [
+        {"title": "Proper Running Form Video", "url": "https://youtube.com/watch?v=example"}
+      ]
     },
     {
       "title": "Week 1: Cross training - Cycling",
@@ -145,7 +156,8 @@ EXAMPLE for "Run a half marathon in 3 months":
       "startDateTime": "2025-10-29T18:00:00Z",
       "endDateTime": "2025-10-29T18:30:00Z",
       "priority": "medium",
-      "milestoneId": "milestone-1"
+      "milestoneId": "milestone-1",
+      "resources": []
     }
   ],
   "milestones": [...],
@@ -224,7 +236,7 @@ Make the plan realistic, specific, and tailored to the user's experience level a
   const goalPlan: GoalPlan = transformAIPlanToGoalPlan(planData, new Date(deadline))
 
   // Transform tasks from AI response to Firestore task format
-  const tasks = transformAITasks(planData.tasks || [], request.specificity)
+  const tasks = transformAITasks(planData.tasks || [])
 
   // Transform resources from AI response
   const resources = transformAIResources(planData.resources || [])
@@ -241,7 +253,7 @@ Make the plan realistic, specific, and tailored to the user's experience level a
 /**
  * Transform AI-generated tasks into Firestore task format
  */
-function transformAITasks(aiTasks: any[], goalTitle: string): Omit<Task, 'id' | 'createdAt'>[] {
+function transformAITasks(aiTasks: any[]): Omit<Task, 'id' | 'createdAt'>[] {
   console.log('[LLM] Transforming', aiTasks.length, 'AI tasks to Firestore format')
 
   return aiTasks.map((aiTask: any, index: number) => {
@@ -265,6 +277,7 @@ function transformAITasks(aiTasks: any[], goalTitle: string): Omit<Task, 'id' | 
       dueDate,
       completed: false,
       milestoneId: aiTask.milestoneId || undefined,
+      resources: aiTask.resources || [], // Include resources from AI response
     }
 
     return task

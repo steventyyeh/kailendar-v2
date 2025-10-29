@@ -11,6 +11,7 @@ export interface Task {
   updatedAt?: string
   calendarEventId?: string // Google Calendar event ID
   milestoneId?: string // Reference to parent milestone
+  resources?: Array<{ title: string; url: string }> // Resources linked to this task
 }
 
 /**

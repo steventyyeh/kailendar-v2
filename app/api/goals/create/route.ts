@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Goals API] Starting synchronous plan generation for goal ${goalId}`)
 
     try {
-      await generatePlanInBackground(userId, goalId, body)
+      await generatePlanInBackground(userId, goalId, body, user)
 
       console.log(`[Goals API] Plan generation completed for goal ${goalId}`)
 
@@ -159,7 +159,8 @@ export async function POST(request: NextRequest) {
 async function generatePlanInBackground(
   userId: string,
   goalId: string,
-  request: CreateGoalRequest
+  request: CreateGoalRequest,
+  user: any
 ) {
   try {
     console.log(`[Background] ========================================`)
@@ -174,7 +175,9 @@ async function generatePlanInBackground(
 
     console.log(`[Background] generatePlanWithClaude imported, calling API...`)
 
-    const { plan, tasks, resources } = await generatePlanWithClaude(request)
+    // Pass user settings to respect availability hours
+    const userSettings = user?.settings ? { availableHours: user.settings.availableHours } : undefined
+    const { plan, tasks, resources } = await generatePlanWithClaude(request, userSettings)
 
     console.log(`[Background] ========================================`)
     console.log(`[Background] Claude API call completed successfully!`)
