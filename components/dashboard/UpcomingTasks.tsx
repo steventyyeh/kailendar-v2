@@ -81,9 +81,9 @@ export default function UpcomingTasks({ userId }: { userId: string }) {
                       Goal: {task.goalTitle}
                     </div>
                   )}
-                  {task.dueDate && (
+                  {(task.startDateTime || task.dueDate) && (
                     <div className="text-sm text-gray-600 mt-1">
-                      {new Date(task.dueDate).toLocaleString('en-US', {
+                      {new Date(task.startDateTime || task.dueDate!).toLocaleString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',

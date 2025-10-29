@@ -11,15 +11,31 @@ export const syncTaskToCalendar = async (
   task: Task,
   goal?: Goal
 ): Promise<string> => {
-  const taskDate = task.dueDate ? new Date(task.dueDate) : new Date()
+  // Use timezone-aware timestamps if available (preferred)
+  let startDateTime: string
+  let endDateTime: string
+  const timezone = task.timezone || 'UTC'
 
-  // Set default time to 9 AM if no time specified
-  if (!task.dueDate || taskDate.getHours() === 0) {
-    taskDate.setHours(9, 0, 0, 0)
+  if (task.startDateTime && task.endDateTime) {
+    // Use the timezone-aware timestamps from the task
+    // These are already in ISO 8601 format with timezone offset
+    startDateTime = task.startDateTime
+    endDateTime = task.endDateTime
+  } else {
+    // Fallback for old tasks without timezone-aware timestamps
+    const taskDate = task.dueDate ? new Date(task.dueDate) : new Date()
+
+    // Set default time to 9 AM if no time specified
+    if (!task.dueDate || taskDate.getHours() === 0) {
+      taskDate.setHours(9, 0, 0, 0)
+    }
+
+    // End time is 1 hour after start by default
+    const endDate = new Date(taskDate.getTime() + 60 * 60 * 1000)
+
+    startDateTime = taskDate.toISOString()
+    endDateTime = endDate.toISOString()
   }
-
-  // End time is 1 hour after start by default
-  const endDate = new Date(taskDate.getTime() + 60 * 60 * 1000)
 
   const eventTitle = task.completed ? `✅ ${task.title}` : task.title
 
@@ -48,12 +64,12 @@ export const syncTaskToCalendar = async (
     summary: eventTitle,
     description: eventDescription,
     start: {
-      dateTime: taskDate.toISOString(),
-      timeZone: 'UTC',
+      dateTime: startDateTime,
+      timeZone: timezone,
     },
     end: {
-      dateTime: endDate.toISOString(),
-      timeZone: 'UTC',
+      dateTime: endDateTime,
+      timeZone: timezone,
     },
     colorId: goal?.calendar?.color ? getGoogleCalendarColorId(goal.calendar.color) : '1',
     reminders: {

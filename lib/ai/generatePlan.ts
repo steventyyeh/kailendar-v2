@@ -17,7 +17,7 @@ interface ClaudeTaskGenerationResponse {
  */
 export async function generatePlanWithClaude(
   request: CreateGoalRequest,
-  userSettings?: { availableHours?: { start: string; end: string } }
+  userSettings?: { availableHours?: { start: string; end: string }; timezone?: string }
 ): Promise<ClaudeTaskGenerationResponse> {
   // Check if Anthropic API key is configured
   console.log('[LLM] Checking for ANTHROPIC_API_KEY...')
@@ -53,6 +53,9 @@ export async function generatePlanWithClaude(
   const now = new Date()
   const totalDays = Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 
+  // Get user timezone (fallback to UTC if not set)
+  const userTimezone = userSettings?.timezone || 'UTC'
+
   // Build context for Claude
   const availabilityText = userSettings?.availableHours
     ? `User is only available between ${userSettings.availableHours.start} and ${userSettings.availableHours.end} each day.`
@@ -71,6 +74,7 @@ Budget: ${budget || 'Not specified'}
 Equipment Available: ${equipment || 'Not specified'}
 Constraints: ${constraints || 'None specified'}
 Availability: ${availabilityText}
+User Timezone: ${userTimezone}
   `.trim()
 
   const systemPrompt = `You are an expert life planning assistant that helps users achieve their goals through actionable daily steps and realistic calendar scheduling.
@@ -90,6 +94,7 @@ CRITICAL: Generate realistic calendar tasks with specific dates and times. Each 
 - Take into account the user's experience level and constraints
 - Optionally include relevant resources (videos, articles, tools) that will help with that specific task
 - IMPORTANT: Schedule all tasks ONLY within the user's available hours if specified in the context. For example, if user is available 18:00-22:00, all task times must fall within that window.
+- CRITICAL TIMEZONE REQUIREMENT: Generate all timestamps in ISO 8601 format WITH the user's timezone offset. For example, if the user is in America/Los_Angeles (UTC-8 in winter), use "2025-10-28T07:00:00-08:00" NOT "2025-10-28T07:00:00Z". The timezone offset ensures "7 AM" means 7 AM local time, not UTC.
 
 Output ONLY valid JSON in this EXACT format:
 {
@@ -135,15 +140,15 @@ Output ONLY valid JSON in this EXACT format:
   ]
 }
 
-EXAMPLE for "Run a half marathon in 3 months":
+EXAMPLE for "Run a half marathon in 3 months" (user in America/Los_Angeles timezone):
 {
   "planSummary": "A 12-week progressive running plan that builds your stamina and speed through consistent training, cross-training, and rest days. You'll gradually increase your mileage from 3 miles to 13.1 miles.",
   "tasks": [
     {
       "title": "Week 1: Easy run - 3 miles",
       "description": "Start with a comfortable pace. Focus on form and breathing. Walk if needed.",
-      "startDateTime": "2025-10-28T07:00:00Z",
-      "endDateTime": "2025-10-28T07:45:00Z",
+      "startDateTime": "2025-10-28T07:00:00-07:00",
+      "endDateTime": "2025-10-28T07:45:00-07:00",
       "priority": "high",
       "milestoneId": "milestone-1",
       "resources": [
@@ -153,8 +158,8 @@ EXAMPLE for "Run a half marathon in 3 months":
     {
       "title": "Week 1: Cross training - Cycling",
       "description": "30 minutes of low-impact cardio to build aerobic base without stressing joints",
-      "startDateTime": "2025-10-29T18:00:00Z",
-      "endDateTime": "2025-10-29T18:30:00Z",
+      "startDateTime": "2025-10-29T18:00:00-07:00",
+      "endDateTime": "2025-10-29T18:30:00-07:00",
       "priority": "medium",
       "milestoneId": "milestone-1",
       "resources": []
@@ -164,6 +169,8 @@ EXAMPLE for "Run a half marathon in 3 months":
   "insights": [...],
   "resources": [...]
 }
+
+NOTE: The timezone offset (-07:00 for Pacific Time in winter) ensures these times are correct in the user's local timezone.
 
 Make the plan realistic, specific, and tailored to the user's experience level and constraints.`
 
@@ -236,7 +243,7 @@ Make the plan realistic, specific, and tailored to the user's experience level a
   const goalPlan: GoalPlan = transformAIPlanToGoalPlan(planData, new Date(deadline))
 
   // Transform tasks from AI response to Firestore task format
-  const tasks = transformAITasks(planData.tasks || [])
+  const tasks = transformAITasks(planData.tasks || [], userTimezone)
 
   // Transform resources from AI response
   const resources = transformAIResources(planData.resources || [])
@@ -253,21 +260,34 @@ Make the plan realistic, specific, and tailored to the user's experience level a
 /**
  * Transform AI-generated tasks into Firestore task format
  */
-function transformAITasks(aiTasks: any[]): Omit<Task, 'id' | 'createdAt'>[] {
+function transformAITasks(
+  aiTasks: any[],
+  userTimezone?: string
+): Omit<Task, 'id' | 'createdAt'>[] {
   console.log('[LLM] Transforming', aiTasks.length, 'AI tasks to Firestore format')
 
   return aiTasks.map((aiTask: any, index: number) => {
-    // Parse dates from AI response
+    // Parse dates from AI response - preserve timezone information
     let dueDate: string
+    let startDateTime: string | undefined
+    let endDateTime: string | undefined
+
     try {
-      // The AI returns startDateTime and endDateTime
-      // We'll use startDateTime as the dueDate for the task
+      // The AI should return ISO 8601 strings with timezone offsets
+      // e.g., "2025-10-28T07:00:00-07:00"
+      // We preserve these exactly as-is to maintain timezone information
+      startDateTime = aiTask.startDateTime
+      endDateTime = aiTask.endDateTime
+
+      // For backwards compatibility, also set dueDate
       const startDate = new Date(aiTask.startDateTime)
-      dueDate = startDate.toISOString()
+      dueDate = aiTask.startDateTime // Preserve original timezone-aware string
     } catch (error) {
       console.warn(`[LLM] Invalid date format for task ${index}, using default`)
       // Default to current time + index hours to spread them out
-      dueDate = new Date(Date.now() + index * 60 * 60 * 1000).toISOString()
+      const fallbackDate = new Date(Date.now() + index * 60 * 60 * 1000)
+      dueDate = fallbackDate.toISOString()
+      startDateTime = dueDate
     }
 
     const task: Omit<Task, 'id' | 'createdAt'> = {
@@ -275,9 +295,12 @@ function transformAITasks(aiTasks: any[]): Omit<Task, 'id' | 'createdAt'>[] {
       title: aiTask.title || `Task ${index + 1}`,
       description: aiTask.description || '',
       dueDate,
+      startDateTime,
+      endDateTime,
       completed: false,
       milestoneId: aiTask.milestoneId || undefined,
       resources: aiTask.resources || [], // Include resources from AI response
+      timezone: userTimezone, // Store user's timezone for reference
     }
 
     return task

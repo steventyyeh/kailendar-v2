@@ -15,6 +15,9 @@ interface Task {
   calendarEventId?: string
   milestoneId?: string
   createdAt: string
+  timezone?: string
+  startDateTime?: string
+  endDateTime?: string
 }
 
 export default function GoalDetailPage() {
@@ -271,7 +274,9 @@ export default function GoalDetailPage() {
             ) : (
               <div className="space-y-3">
                 {tasks.map((task) => {
-                  const dueDate = task.dueDate ? new Date(task.dueDate) : null
+                  // Use startDateTime if available (timezone-aware), otherwise fall back to dueDate
+                  const taskDateTime = task.startDateTime || task.dueDate
+                  const dueDate = taskDateTime ? new Date(taskDateTime) : null
                   const isPast = dueDate && dueDate < new Date()
                   const isToday = dueDate &&
                     dueDate.toDateString() === new Date().toDateString()

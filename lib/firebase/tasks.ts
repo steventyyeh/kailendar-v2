@@ -5,13 +5,16 @@ export interface Task {
   goalId: string
   title: string
   description?: string
-  dueDate?: string // ISO string
+  dueDate?: string // ISO string with timezone offset
   completed: boolean
   createdAt: string
   updatedAt?: string
   calendarEventId?: string // Google Calendar event ID
   milestoneId?: string // Reference to parent milestone
   resources?: Array<{ title: string; url: string }> // Resources linked to this task
+  timezone?: string // IANA timezone, e.g., "America/Los_Angeles"
+  startDateTime?: string // ISO string with timezone offset for precise scheduling
+  endDateTime?: string // ISO string with timezone offset for precise scheduling
 }
 
 /**
