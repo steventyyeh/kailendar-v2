@@ -182,11 +182,14 @@ async function generatePlanInBackground(
       }))
 
       console.log(`[Background] Creating ${tasksWithGoalId.length} tasks for goal ${goalId}`)
+      console.log(`[Background] Sample task data:`, JSON.stringify(tasksWithGoalId[0], null, 2))
+      console.log(`[Background] userId:`, userId)
 
       // Create tasks in Firestore
       const createdTasks = await createTasksBatch(userId, tasksWithGoalId)
 
-      console.log(`[Background] Created ${createdTasks.length} tasks in Firestore for goal ${goalId}`)
+      console.log(`[Background] ✅ Successfully created ${createdTasks.length} tasks in Firestore for goal ${goalId}`)
+      console.log(`[Background] Task IDs:`, createdTasks.map(t => t.id).join(', '))
 
       // Sync to Google Calendar
       try {
