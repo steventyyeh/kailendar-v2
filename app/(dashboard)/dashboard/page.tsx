@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import TaskCard from '@/components/ui/TaskCard'
 import GoalCard from '@/components/ui/GoalCard'
+import UpcomingTasks from '@/components/dashboard/UpcomingTasks'
 import { DashboardData } from '@/types'
 
 export default function DashboardPage() {
@@ -200,27 +201,37 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Today's Tasks */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-900">Today's Tasks</h2>
-          <span className="text-sm text-gray-600">
-            {todaysTasks.filter(t => t.completed).length} of {todaysTasks.length}{' '}
-            completed
-          </span>
-        </div>
-        {todaysTasks.length > 0 ? (
-          <div className="space-y-3">
-            {todaysTasks.map(task => (
-              <TaskCard key={task.id} task={task} onToggle={handleTaskToggle} />
-            ))}
+      {/* Tasks Section - Today's Tasks and Upcoming Tasks side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Today's Tasks - Takes 2 columns */}
+        <div className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">Today's Tasks</h2>
+            <span className="text-sm text-gray-600">
+              {todaysTasks.filter(t => t.completed).length} of {todaysTasks.length}{' '}
+              completed
+            </span>
           </div>
-        ) : (
-          <div className="bg-gray-50 rounded-lg p-8 text-center">
-            <p className="text-gray-600">No tasks scheduled for today.</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Create a goal to get started with your daily tasks!
-            </p>
+          {todaysTasks.length > 0 ? (
+            <div className="space-y-3">
+              {todaysTasks.map(task => (
+                <TaskCard key={task.id} task={task} onToggle={handleTaskToggle} />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-gray-50 rounded-lg p-8 text-center">
+              <p className="text-gray-600">No tasks scheduled for today.</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Create a goal to get started with your daily tasks!
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Upcoming Tasks - Takes 1 column */}
+        {!isDemoMode && dashboardData.user.email && (
+          <div className="lg:col-span-1">
+            <UpcomingTasks userId={dashboardData.user.email} />
           </div>
         )}
       </div>
