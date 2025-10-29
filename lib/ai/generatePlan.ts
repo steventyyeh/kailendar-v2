@@ -84,7 +84,7 @@ Your task is to generate a comprehensive, structured plan that includes:
 2. A list of specific, scheduled tasks distributed across the goal duration
 3. 3-5 milestones that break down the goal into major phases
 4. 2-3 actionable insights
-5. 3-5 recommended resources
+5. 4-8 high-quality, publicly accessible learning resources (videos, courses, articles, tools, books, communities)
 
 CRITICAL: Generate realistic calendar tasks with specific dates and times. Each task should:
 - Have a clear title and description
@@ -166,11 +166,64 @@ EXAMPLE for "Run a half marathon in 3 months" (user in America/Los_Angeles timez
     }
   ],
   "milestones": [...],
-  "insights": [...],
-  "resources": [...]
+  "insights": [
+    "Start slow and focus on consistency over speed",
+    "Cross-training prevents injury and builds overall fitness",
+    "Rest days are when your body adapts and gets stronger"
+  ],
+  "resources": [
+    {
+      "title": "Couch to 5K to Half Marathon Training Plan",
+      "type": "website",
+      "description": "Comprehensive guide with weekly training schedules specifically for beginners",
+      "url": "https://www.halhigdon.com/training-programs/half-marathon-training/novice-1-half-marathon/",
+      "cost": "Free"
+    },
+    {
+      "title": "Nike Run Club App",
+      "type": "tool",
+      "description": "Free app with guided runs, tracking, and community support",
+      "url": "https://www.nike.com/nrc-app",
+      "cost": "Free"
+    },
+    {
+      "title": "Running Form Basics by The Run Experience",
+      "type": "video",
+      "description": "Learn proper running technique to prevent injury and improve efficiency",
+      "url": "https://www.youtube.com/watch?v=brFHyOtTvjI",
+      "cost": "Free"
+    },
+    {
+      "title": "r/running Community",
+      "type": "community",
+      "description": "Active Reddit community with training advice, motivation, and race reports",
+      "url": "https://www.reddit.com/r/running/",
+      "cost": "Free"
+    },
+    {
+      "title": "Born to Run by Christopher McDougall",
+      "type": "book",
+      "description": "Inspiring book about running culture and the science of endurance",
+      "url": null,
+      "cost": "$15"
+    }
+  ]
 }
 
 NOTE: The timezone offset (-07:00 for Pacific Time in winter) ensures these times are correct in the user's local timezone.
+
+IMPORTANT RESOURCE GUIDELINES:
+- Provide 4-8 diverse, high-quality resources that directly support achieving this specific goal
+- Include a mix of resource types: videos (YouTube, educational platforms), courses (Coursera, Udemy, free platforms), articles (Medium, official blogs), tools (apps, software), books (with ISBNs if possible), and communities (Reddit, Discord, forums)
+- For videos: Include actual YouTube channel names or specific video topics (e.g., "FreeCodeCamp Python Tutorial" or "Nike Training Club App Tutorials")
+- For courses: Mention real platforms like Coursera, edX, Udemy, Khan Academy, or free alternatives
+- For articles: Reference well-known sites like Medium, Dev.to, official documentation sites
+- For tools: Include specific app names, websites, or software (e.g., "Strava for runners", "Notion for planning")
+- For books: Include classic or popular titles in the field (e.g., "The Pragmatic Programmer" for coding)
+- For communities: Suggest specific subreddits, Discord servers, or forums (e.g., "r/running", "Dev.to community")
+- Ensure all resources are publicly accessible (free or freemium when possible)
+- Provide realistic, helpful descriptions explaining WHY each resource is valuable for THIS goal
+- Use "Free", "Freemium", "$X one-time", or "Subscription" for cost indicators
 
 Make the plan realistic, specific, and tailored to the user's experience level and constraints.`
 

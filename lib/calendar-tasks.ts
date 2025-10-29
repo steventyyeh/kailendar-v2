@@ -44,13 +44,29 @@ export const syncTaskToCalendar = async (
     task.description || '',
   ]
 
-  // Add resources section if task has resources
+  // Add task-specific resources if available
   if (task.resources && task.resources.length > 0) {
     descriptionParts.push('')
-    descriptionParts.push('📚 Resources:')
+    descriptionParts.push('📚 Task Resources:')
     task.resources.forEach(resource => {
       descriptionParts.push(`• ${resource.title}: ${resource.url}`)
     })
+  }
+
+  // Add goal-level resources if available (first 3 to keep description reasonable)
+  if (goal?.resources && goal.resources.length > 0) {
+    descriptionParts.push('')
+    descriptionParts.push('🎯 Goal Resources:')
+    goal.resources.slice(0, 3).forEach((resource: any) => {
+      if (resource.url) {
+        descriptionParts.push(`• ${resource.title}: ${resource.url}`)
+      } else {
+        descriptionParts.push(`• ${resource.title}`)
+      }
+    })
+    if (goal.resources.length > 3) {
+      descriptionParts.push(`  ... and ${goal.resources.length - 3} more resources`)
+    }
   }
 
   descriptionParts.push('')

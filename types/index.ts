@@ -162,7 +162,7 @@ export interface ProgressStats {
 
 export interface Resource {
   id: string
-  type: 'course' | 'book' | 'video' | 'tool' | 'community' | 'workshop' | 'mentor'
+  type: 'course' | 'book' | 'video' | 'tool' | 'community' | 'workshop' | 'mentor' | 'website'
   title: string
   url?: string
   description: string

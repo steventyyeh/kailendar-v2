@@ -516,41 +516,72 @@ export default function GoalDetailPage() {
         {/* Resources */}
         {goal.resources && goal.resources.length > 0 && (
           <div className="mt-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Resources</h2>
+            <div className="flex items-center gap-3 mb-6">
+              <span className="text-3xl">📚</span>
+              <h2 className="text-2xl font-bold text-gray-900">Learning Resources</h2>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {goal.resources.map((resource) => (
                 <div
                   key={resource.id}
-                  className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                  className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-blue-300 transition-all"
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl">
+                  <div className="flex items-start gap-3 mb-3">
+                    <span className="text-2xl flex-shrink-0">
                       {resource.type === 'course'
-                        ? '📚'
+                        ? '🎓'
                         : resource.type === 'book'
                         ? '📖'
                         : resource.type === 'video'
                         ? '🎥'
+                        : resource.type === 'tool'
+                        ? '🛠️'
+                        : resource.type === 'community'
+                        ? '👥'
+                        : resource.type === 'website'
+                        ? '🌐'
                         : '🔗'}
                     </span>
-                    <h3 className="font-medium text-gray-900">{resource.title}</h3>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">
+                        {resource.title}
+                      </h3>
+                      <span className="inline-block px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
+                        {resource.type}
+                      </span>
+                    </div>
                   </div>
                   {resource.description && (
-                    <p className="text-sm text-gray-600 mb-3">{resource.description}</p>
+                    <p className="text-sm text-gray-600 mb-3 line-clamp-3">
+                      {resource.description}
+                    </p>
                   )}
-                  {resource.url && (
-                    <a
-                      href={resource.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      View Resource →
-                    </a>
-                  )}
-                  {resource.cost && (
-                    <p className="text-xs text-gray-500 mt-2">Cost: {resource.cost}</p>
-                  )}
+                  <div className="flex items-center justify-between mt-4">
+                    {resource.url ? (
+                      <a
+                        href={resource.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                      >
+                        View Resource
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    ) : (
+                      <span className="text-sm text-gray-400">No link available</span>
+                    )}
+                    {resource.cost && (
+                      <span className={`text-xs font-semibold ${
+                        resource.cost.toLowerCase().includes('free')
+                          ? 'text-green-600 bg-green-50'
+                          : 'text-gray-600 bg-gray-100'
+                      } px-2 py-1 rounded-full`}>
+                        {resource.cost}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
