@@ -19,12 +19,17 @@ export async function generatePlanWithClaude(
   request: CreateGoalRequest
 ): Promise<ClaudeTaskGenerationResponse> {
   // Check if Anthropic API key is configured
+  console.log('[LLM] Checking for ANTHROPIC_API_KEY...')
+  console.log('[LLM] API Key exists:', !!process.env.ANTHROPIC_API_KEY)
+  console.log('[LLM] API Key length:', process.env.ANTHROPIC_API_KEY?.length || 0)
+
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('ANTHROPIC_API_KEY not configured, returning minimal plan')
+    console.error('[LLM] ❌ ANTHROPIC_API_KEY not configured!')
+    console.error('[LLM] Environment variables available:', Object.keys(process.env).filter(k => k.includes('ANTHROPIC') || k.includes('API')))
     throw new Error('ANTHROPIC_API_KEY not configured')
   }
 
-  console.log('[LLM] Initializing Claude API for goal:', request.specificity)
+  console.log('[LLM] ✅ API Key confirmed, initializing Claude API for goal:', request.specificity)
 
   // Initialize Anthropic client
   const anthropic = new Anthropic({

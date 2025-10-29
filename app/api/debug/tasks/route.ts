@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         .limit(10)
         .get()
 
-      firestoreData = snapshot.docs.map((doc) => ({
+      firestoreData = snapshot.docs.map((doc: any) => ({
         id: doc.id,
         ...doc.data(),
       }))

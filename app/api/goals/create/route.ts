@@ -94,24 +94,52 @@ export async function POST(request: NextRequest) {
       resources: [],
     })
 
-    // Return immediately with processing status
-    const response: ApiResponse<CreateGoalResponse> = {
-      success: true,
-      data: {
-        goalId,
-        status: 'processing',
-        estimatedTime: 8,
-      },
-      meta: {
-        timestamp: new Date().toISOString(),
-        requestId: crypto.randomUUID(),
-      },
+    // Generate plan synchronously (required for serverless - no true background tasks)
+    // In serverless environments like Vercel, the execution context ends when response is returned
+    // So we must complete the work before returning, or use a separate queue system
+
+    console.log(`[Goals API] Starting synchronous plan generation for goal ${goalId}`)
+
+    try {
+      await generatePlanInBackground(userId, goalId, body)
+
+      console.log(`[Goals API] Plan generation completed for goal ${goalId}`)
+
+      // Return success with 'ready' status since generation is complete
+      const response: ApiResponse<CreateGoalResponse> = {
+        success: true,
+        data: {
+          goalId,
+          status: 'ready',
+          estimatedTime: 0, // Already complete
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: crypto.randomUUID(),
+        },
+      }
+
+      return NextResponse.json(response, { status: 200 })
+    } catch (generationError) {
+      console.error(`[Goals API] Plan generation failed for goal ${goalId}:`, generationError)
+
+      // Return success but with processing status - fallback plan will be used
+      const response: ApiResponse<CreateGoalResponse> = {
+        success: true,
+        data: {
+          goalId,
+          status: 'processing',
+          estimatedTime: 8,
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: crypto.randomUUID(),
+        },
+        warning: 'Goal created but AI generation is in progress. Check back in a moment.',
+      }
+
+      return NextResponse.json(response, { status: 200 })
     }
-
-    // Start plan generation in background (in production, use a queue)
-    generatePlanInBackground(userId, goalId, body).catch(console.error)
-
-    return NextResponse.json(response, { status: 200 })
   } catch (error) {
     console.error('Error creating goal:', error)
     return NextResponse.json<ApiResponse>(
@@ -134,11 +162,22 @@ async function generatePlanInBackground(
   request: CreateGoalRequest
 ) {
   try {
+    console.log(`[Background] ========================================`)
     console.log(`[Background] Starting plan generation for goal ${goalId}`)
+    console.log(`[Background] User: ${userId}`)
+    console.log(`[Background] Goal: ${request.specificity}`)
+    console.log(`[Background] Deadline: ${request.deadline}`)
+    console.log(`[Background] ========================================`)
 
     // Call AI generation function directly (no HTTP request needed)
     const { generatePlanWithClaude } = await import('@/lib/ai/generatePlan')
+
+    console.log(`[Background] generatePlanWithClaude imported, calling API...`)
+
     const { plan, tasks, resources } = await generatePlanWithClaude(request)
+
+    console.log(`[Background] ========================================`)
+    console.log(`[Background] Claude API call completed successfully!`)
 
     console.log(`[Background] AI plan generated for goal ${goalId}:`, {
       tasksGenerated: tasks.length,
