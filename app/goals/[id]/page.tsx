@@ -538,6 +538,10 @@ export default function GoalDetailPage() {
                         ? '🛠️'
                         : resource.type === 'community'
                         ? '👥'
+                        : resource.type === 'workshop'
+                        ? '🎪'
+                        : resource.type === 'mentor'
+                        ? '👨‍🏫'
                         : resource.type === 'website'
                         ? '🌐'
                         : '🔗'}

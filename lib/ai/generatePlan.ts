@@ -96,6 +96,13 @@ CRITICAL: Generate realistic calendar tasks with specific dates and times. Each 
 - IMPORTANT: Schedule all tasks ONLY within the user's available hours if specified in the context. For example, if user is available 18:00-22:00, all task times must fall within that window.
 - CRITICAL TIMEZONE REQUIREMENT: Generate all timestamps in ISO 8601 format WITH the user's timezone offset. For example, if the user is in America/Los_Angeles (UTC-8 in winter), use "2025-10-28T07:00:00-08:00" NOT "2025-10-28T07:00:00Z". The timezone offset ensures "7 AM" means 7 AM local time, not UTC.
 
+CRITICAL JSON FORMAT REQUIREMENTS:
+- Output ONLY valid JSON with NO trailing commas
+- Do NOT add comments in the JSON
+- Ensure all arrays and objects are properly closed
+- Use double quotes for all strings
+- Make sure the JSON is syntactically perfect and can be parsed by JSON.parse()
+
 Output ONLY valid JSON in this EXACT format:
 {
   "planSummary": "A motivational 2-3 sentence summary of the plan",
@@ -267,12 +274,30 @@ Make the plan realistic, specific, and tailored to the user's experience level a
     }
 
     console.log('[LLM] Attempting to parse JSON, length:', jsonText.length)
+
+    // Clean up common JSON formatting issues that Claude might introduce
+    // Remove trailing commas before closing brackets/braces
+    jsonText = jsonText.replace(/,(\s*[}\]])/g, '$1')
+
+    // Try to parse the cleaned JSON
     planData = JSON.parse(jsonText)
     console.log('[LLM] Successfully parsed JSON response')
   } catch (parseError) {
     console.error('[LLM] Failed to parse Claude response:', parseError)
-    console.error('[LLM] Response text preview:', responseText.substring(0, 500))
-    throw new Error('Failed to parse AI response: ' + (parseError as Error).message)
+    console.error('[LLM] Response text preview (first 1000 chars):', responseText.substring(0, 1000))
+    console.error('[LLM] Response text preview (last 1000 chars):', responseText.substring(Math.max(0, responseText.length - 1000)))
+
+    // Log the specific location of the parse error if available
+    const errorMessage = (parseError as Error).message
+    const positionMatch = errorMessage.match(/position (\d+)/)
+    if (positionMatch) {
+      const position = parseInt(positionMatch[1])
+      const start = Math.max(0, position - 200)
+      const end = Math.min(responseText.length, position + 200)
+      console.error('[LLM] Context around error position:', responseText.substring(start, end))
+    }
+
+    throw new Error('Failed to parse AI response: ' + errorMessage)
   }
 
   // Validate required fields
