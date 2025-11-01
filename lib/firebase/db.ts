@@ -309,6 +309,7 @@ export const getUserResources = async (userId: string, goalId?: string): Promise
     return []
   }
 
+  // First, get resources from the separate resources collection
   let query: any = adminDb.collection('resources').where('userId', '==', userId)
 
   if (goalId) {
@@ -318,9 +319,42 @@ export const getUserResources = async (userId: string, goalId?: string): Promise
   query = query.orderBy('addedAt', 'desc')
 
   const snapshot = await query.get()
-  return snapshot.docs.map((doc: any) => {
+  const resourcesFromCollection = snapshot.docs.map((doc: any) => {
     const data = convertTimestamps(doc.data())
     return { id: doc.id, ...data }
+  })
+
+  // Also get resources from goals (they're stored on goal documents)
+  const goals = await getUserGoals(userId, goalId ? 'active' : undefined)
+  const resourcesFromGoals: any[] = []
+
+  goals.forEach((goal: any) => {
+    if (goal.resources && Array.isArray(goal.resources)) {
+      goal.resources.forEach((resource: any) => {
+        resourcesFromGoals.push({
+          ...resource,
+          goalId: goal.id,
+          goalTitle: goal.specificity,
+          goalCategory: goal.category,
+          userId,
+        })
+      })
+    }
+  })
+
+  // Combine both sources and deduplicate
+  const allResources = [...resourcesFromCollection, ...resourcesFromGoals]
+
+  // Filter by goalId if specified
+  const filtered = goalId
+    ? allResources.filter(r => r.goalId === goalId)
+    : allResources
+
+  // Sort by addedAt date descending
+  return filtered.sort((a, b) => {
+    const aDate = a.addedAt ? new Date(a.addedAt).getTime() : 0
+    const bDate = b.addedAt ? new Date(b.addedAt).getTime() : 0
+    return bDate - aDate
   })
 }
 
